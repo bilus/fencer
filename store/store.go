@@ -3,9 +3,9 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"github.com/bilus/gogeos/geos"
 	"github.com/dhconnelly/rtreego"
 	pq "github.com/mc2soft/pq-types"
-	"github.com/paulsmith/gogeos/geos"
 	geom "github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/geojson"
 	"log"
