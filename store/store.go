@@ -18,13 +18,14 @@ type BroadcastStore struct {
 }
 
 type Broadcast struct {
-	BroadcastId  int64
-	bounds       *rtreego.Rect
-	coverageArea []*geos.PGeometry
+	BroadcastId   int64
+	BroadcastType string
+	BaselineData  string
+	bounds        *rtreego.Rect
+	coverageArea  []*geos.PGeometry
 }
 
-func NewBroadcast(id int64, bounds pq.PostGISBox2D, coverageArea []*geos.PGeometry) (*Broadcast, error) {
-	// log.Println(bounds, lengths(bounds))
+func NewBroadcast(id int64, broadcastType string, baselineData string, bounds pq.PostGISBox2D, coverageArea []*geos.PGeometry) (*Broadcast, error) {
 	rtBounds, err := rtreego.NewRect(
 		rtreego.Point{bounds.Min.Lon, bounds.Min.Lat},
 		lengths(bounds),
@@ -34,6 +35,8 @@ func NewBroadcast(id int64, bounds pq.PostGISBox2D, coverageArea []*geos.PGeomet
 	}
 	return &Broadcast{
 		id,
+		broadcastType,
+		baselineData,
 		rtBounds,
 		coverageArea,
 	}, nil
@@ -66,24 +69,24 @@ func (b *Broadcast) Contains(point *geos.Geometry) bool {
 }
 
 func Load(db *sql.DB) (*BroadcastStore, error) {
-	// rt := rtreego.NewTree(2, 25, 50)
-	// rt := rtreego.NewTree(2, 10, 20)
-	// rt := rtreego.NewTree(2, 10, 100)
 	rt := BroadcastStore{rtreego.NewTree(2, 5, 20)}
 
-	rows, err := db.Query("SELECT id, ST_Extent(coverage_area::geometry)::box2d, ST_AsGeoJson(coverage_area::geometry) FROM broadcasts GROUP BY id")
+	rows, err := db.Query("SELECT id, broadcast_type, baseline_data, ST_Extent(coverage_area::geometry)::box2d, ST_AsGeoJson(coverage_area::geometry) FROM broadcasts GROUP BY id")
 	if err != nil {
 		return nil, err
 	}
+	numSkipped := 0
 	defer rows.Close()
 	var id int64
+	var broadcastType sql.NullString
+	var baselineData sql.NullString
 	var boundingBox pq.PostGISBox2D
 	var geoJson sql.NullString
 	for rows.Next() {
-		if err := rows.Scan(&id, &boundingBox, &geoJson); err != nil {
+		if err := rows.Scan(&id, &broadcastType, &baselineData, &boundingBox, &geoJson); err != nil {
 			return nil, err
 		}
-		if geoJson.Valid {
+		if geoJson.Valid && broadcastType.Valid && baselineData.Valid {
 			var covArea geom.T
 			if err = geojson.Unmarshal([]byte(geoJson.String), &covArea); err != nil {
 				return nil, err
@@ -94,13 +97,18 @@ func Load(db *sql.DB) (*BroadcastStore, error) {
 				geometries[i] = polygonToGeometry(multiPoly.Polygon(i)).Prepare()
 			}
 
-			if broadcast, err := NewBroadcast(id, boundingBox, geometries); err != nil {
-				log.Printf("Skipping %v: %v", id, err)
+			if broadcast, err := NewBroadcast(id, broadcastType.String, baselineData.String, boundingBox, geometries); err != nil {
+				// log.Printf("Skipping %v: %v", id, err)
 			} else {
 				rt.Insert(broadcast)
 			}
+		} else {
+			numSkipped++
+			// log.Printf("Skipping broadcast %v: missing data", id)
 		}
+
 	}
+	log.Printf("Skipped: %v broadcasts", numSkipped)
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
