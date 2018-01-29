@@ -34,7 +34,7 @@ func runExperiment(db *sql.DB) error {
 	}
 
 	for _, result := range results {
-		println(result.(*store.Broadcast).BroadcastId)
+		println(result.BroadcastId)
 	}
 	log.Printf("%v result(s).", len(results))
 	return nil

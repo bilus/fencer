@@ -2,8 +2,6 @@ package store
 
 import (
 	"database/sql"
-	"errors"
-	"fmt"
 	"github.com/bilus/gogeos/geos"
 	"github.com/bilus/rtreego"
 	pq "github.com/mc2soft/pq-types"
@@ -17,87 +15,6 @@ type Point = rtreego.Point
 
 type BroadcastStore struct {
 	*rtreego.Rtree
-}
-
-type Broadcast struct {
-	BroadcastId      int64
-	BroadcastType    string
-	BaselineData     string
-	bounds           *rtreego.Rect
-	coverageArea     []*geos.PGeometry
-	combinedCoverage *geos.Geometry
-}
-
-func NewBroadcast(id int64, broadcastType string, baselineData string, bounds pq.PostGISBox2D, coverageArea geom.T) (*Broadcast, error) {
-	multiPoly := coverageArea.(*geom.MultiPolygon)
-	preparedCoverageAreaGeometries := make([]*geos.PGeometry, multiPoly.NumPolygons())
-	coverageAreaGeometries := make([]*geos.Geometry, multiPoly.NumPolygons())
-	for i := 0; i < multiPoly.NumPolygons(); i++ {
-		geometry := polygonToGeometry(multiPoly.Polygon(i))
-		coverageAreaGeometries[i] = geometry
-		preparedCoverageAreaGeometries[i] = geometry.Prepare()
-	}
-	combinedCoverage, err := unionGeometries(coverageAreaGeometries)
-	if err != nil {
-		return nil, err
-	}
-
-	rtBounds, err := rtreego.NewRect(
-		rtreego.Point{bounds.Min.Lon, bounds.Min.Lat},
-		lengths(bounds),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &Broadcast{
-		id,
-		broadcastType,
-		baselineData,
-		rtBounds,
-		preparedCoverageAreaGeometries,
-		combinedCoverage,
-	}, nil
-}
-
-func unionGeometries(geometries []*geos.Geometry) (*geos.Geometry, error) {
-	if len(geometries) == 0 {
-		return nil, errors.New("No geometries")
-	}
-	result := geometries[0]
-	var err error
-	for _, geometry := range geometries[1:] {
-		result, err = result.Union(geometry)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-func (b *Broadcast) Bounds() *rtreego.Rect {
-	return b.bounds
-}
-
-func lengths(bounds pq.PostGISBox2D) []float64 {
-	return []float64{
-		bounds.Max.Lon - bounds.Min.Lon,
-		bounds.Max.Lat - bounds.Min.Lat,
-	}
-}
-
-func (b *Broadcast) Contains(point *geos.Geometry) bool {
-	for _, geometry := range b.coverageArea {
-		inter, err := geometry.Covers(point) // TODO: Prepare before contains
-		if err != nil {
-			log.Println(geometry)
-			log.Println(point)
-			panic(fmt.Sprintf("Ooops: %v", err))
-		}
-		if inter {
-			return true
-		}
-	}
-	return false
 }
 
 func Load(db *sql.DB) (*BroadcastStore, error) {
@@ -165,97 +82,49 @@ func (rt *BroadcastStore) FindBroadcasts(point Point) ([]rtreego.Spatial, error)
 	return broadcasts, nil
 }
 
-type Query struct {
-	point Point
+type Singleton struct{}
+
+type ClosestOutside struct {
+	Point
 }
 
-func (rt *BroadcastStore) FindClosestBroadcasts(point Point) ([]rtreego.Spatial, error) {
+func (s Singleton) ActsAsResultKey() {}
+
+func (co ClosestOutside) IsMatch(broadcast *Broadcast) (bool, error) {
+	dist, err := broadcast.MinDistance(co.Point)
+	if err != nil {
+		return false, err
+	}
+	return dist > 0, nil
+}
+
+func (ClosestOutside) GetResultKey(broadcast *Broadcast) ResultKey {
+	return Singleton{}
+}
+
+func (rt *BroadcastStore) FindClosestBroadcasts(point Point) ([]*Broadcast, error) {
 	bounds, err := geomBoundsAround(point, 1000)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println(bounds.PointCoord(0))
-	log.Println(bounds.PointCoord(1))
-	log.Println(bounds.PointCoord(0) + bounds.LengthsCoord(0))
-	log.Println(bounds.PointCoord(1) + bounds.LengthsCoord(1))
 
 	candidates := rt.SearchIntersect(bounds)
 	if len(candidates) == 0 {
 		return nil, nil
 	}
-	broadcast := candidates[0]
-	dist, err := trueDistance(point, broadcast)
-	if err != nil {
-		return nil, err
-	}
-	for _, candidate := range candidates[1:] {
-		if point.MinDist(candidate.Bounds()) > dist {
-			continue
-		}
-		candDist, err := trueDistance(point, candidate)
+
+	query := NeighbourQuery{point, ClosestOutside{point}, make(map[ResultKey]Match)}
+	for _, candidate := range candidates {
+		err := query.Scan(candidate.(*Broadcast))
 		if err != nil {
 			return nil, err
 		}
-		if candDist < dist && candDist > 0 {
-			dist = candDist
-			broadcast = candidate
-		}
 	}
-
-	// broadcasts := rt.NearestNeighbors(10, rtreego.Point(point), Query{point}.MinDistance(1000))
-	return []rtreego.Spatial{broadcast}, nil
-}
-
-// func (rt *BroadcastStore) FindClosestBroadcastsApprox(point Point) ([]rtreego.Spatial, error) {
-// 	return rt.NearestNeighbors(1, rtreego.Point(point), Query{point}.NonZeroDistance()), nil
-// }
-
-func trueDistance(point Point, broadcast rtreego.Spatial) (float64, error) {
-	geosPoint, err := geos.NewPoint(geos.NewCoord(point[0], point[1]))
-	if err != nil {
-		return -1, err
-	}
-
-	minDist, err := geosPoint.Distance(broadcast.(*Broadcast).combinedCoverage)
-	if err != nil {
-		return -1, err
-	}
-	return minDist, nil
+	return query.GetMatchingBroadcasts(), nil
 }
 
 func geomBoundsAround(point Point, radiusMeters float64) (*rtreego.Rect, error) {
 	bound := geo.NewGeoBoundAroundPoint(geo.NewPoint(point[0], point[1]), radiusMeters)
 	tl := bound.SouthWest()
 	return rtreego.NewRect(rtreego.Point{tl[0], tl[1]}, []float64{bound.Width(), bound.Height()})
-}
-
-func polygonToGeometry(geofence *geom.Polygon) *geos.Geometry {
-	// Convert the outer shell to geos format.
-	shell := geofence.LinearRing(0).Coords()
-	shellGeos := geomToGeosCoords(shell)
-
-	// TODO: Holes!
-	// Convert each hole to geos format.
-	// numHoles := geofence.NumLinearRings() - 1
-	// holes := make([][]geos.Coord, numHoles)
-	// for i := 0; i < numHoles; i++ {
-	// 	holes[i] = geomToGeosCoords(geofence.LinearRing(i).Coords())
-	// }
-
-	return geos.Must(geos.NewPolygon(shellGeos)) //, holes...))
-}
-
-func geomToGeosCoord(coord geom.Coord) geos.Coord {
-	return geos.Coord{
-		X: coord.X(),
-		Y: coord.Y(),
-	}
-}
-
-func geomToGeosCoords(coords []geom.Coord) []geos.Coord {
-	out := make([]geos.Coord, len(coords))
-	for i := 0; i < len(coords); i++ {
-		out[i] = geomToGeosCoord(coords[i])
-	}
-	return out
 }
