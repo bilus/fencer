@@ -7,7 +7,27 @@ import (
 	"testing"
 )
 
-func BenchmarkQuery(b *testing.B) {
+// func BenchmarkFindBroadcasts(b *testing.B) {
+// 	db, err := sql.Open("postgres", "user=postgres password=mysecretpassword host=localhost port=5432 dbname=broadcasts sslmode=disable")
+// 	if err != nil {
+// 		b.Fatal(err)
+// 	}
+// 	broadcastsStore, err := store.Load(db)
+// 	if err != nil {
+// 		b.Fatal(err)
+// 	}
+// 	point := store.Point{13.4, 52.52}
+// 	b.Run("Find point", func(b *testing.B) {
+// 		for n := 0; n < b.N; n++ {
+// 			_, err := broadcastsStore.FindBroadcasts(point)
+// 			if err != nil {
+// 				b.Fatal(err)
+// 			}
+// 		}
+// 	})
+// }
+
+func BenchmarkFindClosestBroadcasts(b *testing.B) {
 	db, err := sql.Open("postgres", "user=postgres password=mysecretpassword host=localhost port=5432 dbname=broadcasts sslmode=disable")
 	if err != nil {
 		b.Fatal(err)
@@ -19,7 +39,7 @@ func BenchmarkQuery(b *testing.B) {
 	point := store.Point{13.4, 52.52}
 	b.Run("Find point", func(b *testing.B) {
 		for n := 0; n < b.N; n++ {
-			_, err := broadcastsStore.FindBroadcasts(point)
+			_, err := broadcastsStore.FindClosestBroadcasts(point)
 			if err != nil {
 				b.Fatal(err)
 			}

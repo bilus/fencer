@@ -27,7 +27,8 @@ func runExperiment(db *sql.DB) error {
 		return err
 	}
 	point := store.Point{13.4, 52.52}
-	results, err := bs.FindBroadcasts(point)
+	// results, err := bs.FindBroadcasts(point)
+	results, err := bs.FindClosestBroadcasts(point)
 	if err != nil {
 		return err
 	}
