@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"github.com/bilus/fencer/countries"
 	"github.com/bilus/fencer/store"
 	_ "github.com/jackc/pgx/stdlib"
 	_ "github.com/lib/pq"
@@ -47,7 +48,7 @@ type MatchAnyFrequency struct {
 	Frequencies []Freq
 }
 
-func (s Freq) ActsAsResultKey() {}
+func (Freq) ActsAsResultKey() {}
 
 func (f MatchAnyFrequency) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	if broadcast.Freq == nil {
@@ -66,17 +67,57 @@ func (f MatchAnyFrequency) GetResultKey(broadcast *store.Broadcast) store.Result
 	return Freq(*broadcast.Freq)
 }
 
+type Dab struct {
+	gcc string
+	eid string
+}
+
+type MatchDabs struct {
+	Dabs []Dab
+}
+
+func (Dab) ActsAsResultKey() {}
+
+func (filter MatchDabs) IsMatch(broadcast *store.Broadcast) (bool, error) {
+	if broadcast.Eid == nil || broadcast.Country == nil {
+		return false, nil
+	}
+	log.Printf("Broadcast id=%v eid=%v country=%v", broadcast.BroadcastId, *broadcast.Eid, *broadcast.Country)
+	for _, dab := range filter.Dabs {
+		isoCountryCode, err := countries.GccToIso(dab.gcc)
+		if err != nil {
+			// TODO: Need more robust error handling.
+			log.Printf("Problem handling gcc %v searching for broadcasts: %v", dab.gcc, err)
+			continue
+		}
+		if isoCountryCode == *broadcast.Country && dab.eid == *broadcast.Eid {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (MatchDabs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
+	// Safe to dereference, GetResultKey never gets called if IsMatch returns false.
+	return Dab{*broadcast.Country, *broadcast.Eid}
+}
+
 func runExperiment(db *sql.DB) error {
 	bs, err := store.Load(db)
 	if err != nil {
 		return err
 	}
-	// point := store.Point{13.4, 52.52}
-	point := store.Point{-74.0059413, 40.7127837} // New York
 	radius := 58000.0
-	freqs := []Freq{1520, 1310}
-	// results, err := bs.FindBroadcasts(point)
-	results, err := bs.FindClosestBroadcasts(point, radius, MatchAnyFrequency{freqs})
+	// point := store.Point{-74.0059413, 40.7127837} // New York
+	// freqs := []Freq{1520, 1310}
+	point := store.Point{13.4, 52.52} // Berlin
+	dabs := []Dab{
+		{"DE0", "10C6"},
+		{"DE0", "10F2"},
+	}
+	// results, err := bs.FindClosestBroadcasts(point, radius, MatchAnyFrequency{freqs})
+
+	results, err := bs.FindClosestBroadcasts(point, radius, MatchDabs{dabs})
 	if err != nil {
 		return err
 	}
@@ -87,46 +128,3 @@ func runExperiment(db *sql.DB) error {
 	log.Printf("%v result(s).", len(results))
 	return nil
 }
-
-// Use geohashes:
-// package main
-
-// import (
-// 	"github.com/Willyham/hashfill"
-// 	geom "github.com/twpayne/go-geom"
-// 	"github.com/twpayne/go-geom/encoding/geojson"
-// 	"io/ioutil"
-// )
-
-// func main() {
-// 	var err error
-// 	path := "first.json"
-// 	var data []byte
-// 	if data, err = ioutil.ReadFile(path); err != nil {
-// 		println("Error reading:", err)
-// 		return
-// 	}
-// 	// var poly geom.T
-// 	var feature geojson.Feature
-// 	if err = feature.UnmarshalJSON(data); err != nil {
-// 		println("Error unmarshalling:", err)
-// 		return
-// 	}
-// 	filler := hashfill.NewRecursiveFiller(
-// 		hashfill.WithMaxPrecision(9),
-// 		// hashfill.WithFixedPrecision(),
-// 	)
-
-// 	poly := feature.Geometry.(*geom.MultiPolygon)
-
-// 	var hashes []string
-// 	if hashes, err = filler.Fill(poly.Polygon(0), hashfill.FillIntersects); err != nil {
-// 		println("Error hashing:", err)
-// 		return
-// 	}
-
-// 	println(len(hashes))
-// 	if len(hashes) > 0 {
-// 		println(hashes[0])
-// 	}
-// }

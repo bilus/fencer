@@ -17,7 +17,7 @@ type BroadcastStore struct {
 func Load(db *sql.DB) (*BroadcastStore, error) {
 	rt := BroadcastStore{rtreego.NewTree(2, 5, 20)}
 
-	rows, err := db.Query("SELECT id, broadcast_type, baseline_data, ST_Extent(coverage_area::geometry)::box2d, ST_AsGeoJson(coverage_area::geometry), freq FROM broadcasts GROUP BY id")
+	rows, err := db.Query(LoadBroadcastsQuery)
 	if err != nil {
 		return nil, err
 	}

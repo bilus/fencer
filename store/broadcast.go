@@ -11,16 +11,22 @@ import (
 )
 
 type Broadcast struct {
-	BroadcastId      int64
-	BroadcastType    string
-	BaselineData     string
-	Freq             *int64
+	BroadcastId   int64
+	BroadcastType string
+	BaselineData  string
+	Freq          *int64
+	Eid           *string
+	Country       *string
+	PiCode        *string
+
 	bounds           *rtreego.Rect
 	coverageArea     []*geos.PGeometry
 	combinedCoverage *geos.Geometry
 }
 
-func NewBroadcast(id int64, broadcastType string, baselineData string, freq *int64, bounds pq.PostGISBox2D, coverageArea geom.T) (*Broadcast, error) {
+func NewBroadcast(id int64, broadcastType string, baselineData string, freq *int64, eid *string, country *string, piCode *string,
+	bounds pq.PostGISBox2D, coverageArea geom.T) (*Broadcast, error) {
+
 	multiPoly := coverageArea.(*geom.MultiPolygon)
 	preparedCoverageAreaGeometries := make([]*geos.PGeometry, multiPoly.NumPolygons())
 	coverageAreaGeometries := make([]*geos.Geometry, multiPoly.NumPolygons())
@@ -46,6 +52,9 @@ func NewBroadcast(id int64, broadcastType string, baselineData string, freq *int
 		broadcastType,
 		baselineData,
 		freq,
+		eid,
+		country,
+		piCode,
 		rtBounds,
 		preparedCoverageAreaGeometries,
 		combinedCoverage,
