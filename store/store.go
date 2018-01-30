@@ -14,27 +14,21 @@ type BroadcastStore struct {
 	*rtreego.Rtree
 }
 
-func Load(db *sql.DB) (*BroadcastStore, error) {
-	rt := BroadcastStore{rtreego.NewTree(2, 5, 20)}
-
-	rows, err := db.Query(LoadBroadcastsQuery)
+func LoadFromSQL(db *sql.DB) (*BroadcastStore, error) {
+	broadcasts, numSkipped, err := LoadBroadcastsFromSQL(db)
 	if err != nil {
 		return nil, err
 	}
-	numSkipped := 0
-	defer rows.Close()
-	for rows.Next() {
-		if broadcast, err := NewBroadcastFromRow(rows); err != nil {
-			numSkipped++
-		} else {
-			rt.Insert(broadcast)
-		}
-	}
 	log.Printf("Skipped: %v broadcasts due to errors or missing data", numSkipped)
-	if err := rows.Err(); err != nil {
-		return nil, err
+	return New(broadcasts)
+}
+
+func New(broadcasts []*Broadcast) (*BroadcastStore, error) {
+	store := BroadcastStore{rtreego.NewTree(2, 5, 20)}
+	for _, broadcast := range broadcasts {
+		store.Insert(broadcast)
 	}
-	return &rt, nil
+	return &store, nil
 }
 
 func FilterContaining(point *geos.Geometry) rtreego.Filter {
@@ -47,7 +41,7 @@ func FilterContaining(point *geos.Geometry) rtreego.Filter {
 	}
 }
 
-func (rt *BroadcastStore) FindBroadcasts(point Point) ([]rtreego.Spatial, error) {
+func (store *BroadcastStore) FindBroadcasts(point Point) ([]rtreego.Spatial, error) {
 	geosPoint, err := geos.NewPoint(geos.NewCoord(point[0], point[1]))
 	if err != nil {
 		return nil, err
@@ -57,17 +51,17 @@ func (rt *BroadcastStore) FindBroadcasts(point Point) ([]rtreego.Spatial, error)
 	if err != nil {
 		return nil, err
 	}
-	broadcasts := rt.SearchIntersect(p, FilterContaining(geosPoint))
+	broadcasts := store.SearchIntersect(p, FilterContaining(geosPoint))
 	return broadcasts, nil
 }
 
-func (rt *BroadcastStore) FindClosestBroadcasts(point Point, radiusMeters float64, filter Filter) ([]*Broadcast, error) {
+func (store *BroadcastStore) FindClosestBroadcasts(point Point, radiusMeters float64, filter Filter) ([]*Broadcast, error) {
 	bounds, err := geomBoundsAround(point, radiusMeters)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	candidates := rt.SearchIntersect(bounds)
+	candidates := store.SearchIntersect(bounds)
 	if len(candidates) == 0 {
 		return nil, nil
 	}

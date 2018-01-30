@@ -32,7 +32,7 @@ func BenchmarkFindClosestBroadcasts(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	broadcastsStore, err := store.Load(db)
+	broadcastsStore, err := store.LoadFromSQL(db)
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -10,9 +10,30 @@ import (
 
 var MissingDataError = errors.New("Missing broadcast data")
 
-var LoadBroadcastsQuery = "SELECT id, broadcast_type, baseline_data, ST_Extent(coverage_area::geometry)::box2d, ST_AsGeoJson(coverage_area::geometry), freq, country, eid, pi_code FROM broadcasts GROUP BY id"
+var loadBroadcastsQuery = "SELECT id, broadcast_type, baseline_data, ST_Extent(coverage_area::geometry)::box2d, ST_AsGeoJson(coverage_area::geometry), freq, country, eid, pi_code FROM broadcasts GROUP BY id"
 
-func NewBroadcastFromRow(rows *sql.Rows) (*Broadcast, error) {
+func LoadBroadcastsFromSQL(db *sql.DB) ([]*Broadcast, int, error) {
+	broadcasts := make([]*Broadcast, 0)
+	rows, err := db.Query(loadBroadcastsQuery)
+	if err != nil {
+		return nil, 0, err
+	}
+	numSkipped := 0
+	defer rows.Close()
+	for rows.Next() {
+		if broadcast, err := newBroadcastFromRow(rows); err != nil {
+			numSkipped++
+		} else {
+			broadcasts = append(broadcasts, broadcast)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return broadcasts, numSkipped, nil
+}
+
+func newBroadcastFromRow(rows *sql.Rows) (*Broadcast, error) {
 	var id int64
 	var broadcastType sql.NullString
 	var baselineData sql.NullString

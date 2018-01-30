@@ -82,7 +82,7 @@ func (filter MatchDabs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	if broadcast.Eid == nil || broadcast.Country == nil {
 		return false, nil
 	}
-	log.Printf("Broadcast id=%v eid=%v country=%v", broadcast.BroadcastId, *broadcast.Eid, *broadcast.Country)
+	// log.Printf("Broadcast id=%v eid=%v country=%v", broadcast.BroadcastId, *broadcast.Eid, *broadcast.Country)
 	for _, dab := range filter.Dabs {
 		isoCountryCode, err := countries.GccToIso(dab.gcc)
 		if err != nil {
@@ -103,7 +103,7 @@ func (MatchDabs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
 }
 
 func runExperiment(db *sql.DB) error {
-	bs, err := store.Load(db)
+	bs, err := store.LoadFromSQL(db)
 	if err != nil {
 		return err
 	}
