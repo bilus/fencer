@@ -44,13 +44,13 @@ func (ClosestOutside) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
 
 type Freq int64
 
-type MatchAnyFrequency struct {
+type MatchFreqs struct {
 	Frequencies []Freq
 }
 
 func (Freq) ActsAsResultKey() {}
 
-func (f MatchAnyFrequency) IsMatch(broadcast *store.Broadcast) (bool, error) {
+func (f MatchFreqs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	if broadcast.Freq == nil {
 		return false, nil
 	}
@@ -62,7 +62,7 @@ func (f MatchAnyFrequency) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	return false, nil
 }
 
-func (f MatchAnyFrequency) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
+func (f MatchFreqs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
 	// Safe to dereference, GetResultKey never gets called if IsMatch returns false.
 	return Freq(*broadcast.Freq)
 }
@@ -72,13 +72,13 @@ type DAB struct {
 	Eid     string
 }
 
-type MatchDabs struct {
+type MatchDABs struct {
 	RDSs []DAB
 }
 
 func (DAB) ActsAsResultKey() {}
 
-func (filter MatchDabs) IsMatch(broadcast *store.Broadcast) (bool, error) {
+func (filter MatchDABs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	if broadcast.Eid == nil || broadcast.Country == nil {
 		return false, nil
 	}
@@ -91,7 +91,7 @@ func (filter MatchDabs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	return false, nil
 }
 
-func (MatchDabs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
+func (MatchDABs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
 	// Safe to dereference, GetResultKey never gets called if IsMatch returns false.
 	return DAB{*broadcast.Country, *broadcast.Eid}
 }
@@ -138,24 +138,21 @@ func runExperiment(db *sql.DB) error {
 
 	// point := store.Point{-74.0059413, 40.71DB27837} // New York
 	// freqs := []Freq{1520, 1310}
-	// results, err := bs.FindClosestBroadcasts(point, radius, MatchAnyFrequency{freqs})
+	// results, err := bs.FindClosestBroadcasts(point, radius, MatchFreqs{freqs})
 
-	// point := store.Point{13.4, 52.52} // Berlin
-	// dabs := []DAB{
-	// 	{isoCountryCode, "10C6"},
-	// 	{isoCountryCode, "10F2"},
-	// }
-	// results, err := bs.FindClosestBroadcasts(point, radius, MatchDABs{dabs})
-	// if err != nil {
-	// 	return err
-	// }
+	// NEED TESTS!
 
 	point := store.Point{13.4, 52.52} // Berlin
+	dabs := []DAB{
+		{isoCountryCode, "10C6"},
+		{isoCountryCode, "10F2"},
+	}
 	rdss := []RDS{
 		{isoCountryCode, "D3D8", 101000},
 		{isoCountryCode, "D3D9", 98400},
 	}
-	results, err := bs.FindClosestBroadcasts(point, radius, MatchRDSs{rdss})
+	results, err := bs.FindClosestBroadcasts(point, radius,
+		[]store.Filter{MatchRDSs{rdss}, MatchDABs{dabs}})
 	if err != nil {
 		return err
 	}
