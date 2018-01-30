@@ -46,10 +46,11 @@ func (q *NeighbourQuery) GetMatchingBroadcasts() []*Broadcast {
 	broadcasts := make([]*Broadcast, 0)
 	matched := make(map[int64]struct{})
 	for _, match := range q.Matches {
-		_, isMatched := matched[match.Broadcast.BroadcastId]
+		broadcastId := match.Broadcast.BroadcastId
+		_, isMatched := matched[broadcastId]
 		if !isMatched {
 			broadcasts = append(broadcasts, match.Broadcast)
-			matched[match.Broadcast.BroadcastId] = struct{}{}
+			matched[broadcastId] = struct{}{}
 		}
 	}
 	return broadcasts
@@ -67,37 +68,4 @@ func anyMatch(filters []Filter, broadcast *Broadcast) ([]ResultKey, error) {
 		}
 	}
 	return keys, nil
-}
-
-type DisjQuery struct {
-	Clauses []*NeighbourQuery
-}
-
-func (q *DisjQuery) Scan(broadcast *Broadcast) error {
-	for _, clause := range q.Clauses {
-		err := clause.Scan(broadcast)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (q *DisjQuery) GetMatchingBroadcasts() []*Broadcast {
-	// TODO: We are calculating distance point<->broadcast over and over again
-	// for each clause. This can be cached by using a Strategy for calculation.
-	// TODO: A lot of unnecessary copying.
-	broadcasts := make([]*Broadcast, 0)
-	matched := make(map[int64]struct{})
-	for _, clause := range q.Clauses {
-		intermediate := clause.GetMatchingBroadcasts()
-		for _, broadcast := range intermediate {
-			_, isMatched := matched[broadcast.BroadcastId]
-			if !isMatched {
-				broadcasts = append(broadcasts, broadcast)
-				matched[broadcast.BroadcastId] = struct{}{}
-			}
-		}
-	}
-	return broadcasts
 }
