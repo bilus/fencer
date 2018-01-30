@@ -4,10 +4,7 @@ import (
 	"database/sql"
 	"github.com/bilus/gogeos/geos"
 	"github.com/bilus/rtreego"
-	pq "github.com/mc2soft/pq-types"
 	"github.com/paulmach/go.geo"
-	geom "github.com/twpayne/go-geom"
-	"github.com/twpayne/go-geom/encoding/geojson"
 	"log"
 )
 
@@ -20,38 +17,20 @@ type BroadcastStore struct {
 func Load(db *sql.DB) (*BroadcastStore, error) {
 	rt := BroadcastStore{rtreego.NewTree(2, 5, 20)}
 
-	rows, err := db.Query("SELECT id, broadcast_type, baseline_data, ST_Extent(coverage_area::geometry)::box2d, ST_AsGeoJson(coverage_area::geometry) FROM broadcasts GROUP BY id")
+	rows, err := db.Query("SELECT id, broadcast_type, baseline_data, ST_Extent(coverage_area::geometry)::box2d, ST_AsGeoJson(coverage_area::geometry), freq FROM broadcasts GROUP BY id")
 	if err != nil {
 		return nil, err
 	}
 	numSkipped := 0
 	defer rows.Close()
-	var id int64
-	var broadcastType sql.NullString
-	var baselineData sql.NullString
-	var boundingBox pq.PostGISBox2D
-	var geoJson sql.NullString
 	for rows.Next() {
-		if err := rows.Scan(&id, &broadcastType, &baselineData, &boundingBox, &geoJson); err != nil {
-			return nil, err
-		}
-		if geoJson.Valid && broadcastType.Valid && baselineData.Valid {
-			var covArea geom.T
-			if err = geojson.Unmarshal([]byte(geoJson.String), &covArea); err != nil {
-				return nil, err
-			}
-			if broadcast, err := NewBroadcast(id, broadcastType.String, baselineData.String, boundingBox, covArea); err != nil {
-				// log.Printf("Skipping %v: %v", id, err)
-			} else {
-				rt.Insert(broadcast)
-			}
-		} else {
+		if broadcast, err := NewBroadcastFromRow(rows); err != nil {
 			numSkipped++
-			// log.Printf("Skipping broadcast %v: missing data", id)
+		} else {
+			rt.Insert(broadcast)
 		}
-
 	}
-	log.Printf("Skipped: %v broadcasts", numSkipped)
+	log.Printf("Skipped: %v broadcasts due to errors or missing data", numSkipped)
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -82,28 +61,8 @@ func (rt *BroadcastStore) FindBroadcasts(point Point) ([]rtreego.Spatial, error)
 	return broadcasts, nil
 }
 
-type Singleton struct{}
-
-type ClosestOutside struct {
-	Point
-}
-
-func (s Singleton) ActsAsResultKey() {}
-
-func (co ClosestOutside) IsMatch(broadcast *Broadcast) (bool, error) {
-	dist, err := broadcast.MinDistance(co.Point)
-	if err != nil {
-		return false, err
-	}
-	return dist > 0, nil
-}
-
-func (ClosestOutside) GetResultKey(broadcast *Broadcast) ResultKey {
-	return Singleton{}
-}
-
-func (rt *BroadcastStore) FindClosestBroadcasts(point Point) ([]*Broadcast, error) {
-	bounds, err := geomBoundsAround(point, 1000)
+func (rt *BroadcastStore) FindClosestBroadcasts(point Point, radiusMeters float64, filter Filter) ([]*Broadcast, error) {
+	bounds, err := geomBoundsAround(point, radiusMeters)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -113,7 +72,7 @@ func (rt *BroadcastStore) FindClosestBroadcasts(point Point) ([]*Broadcast, erro
 		return nil, nil
 	}
 
-	query := NeighbourQuery{point, ClosestOutside{point}, make(map[ResultKey]Match)}
+	query := NeighbourQuery{point, filter, make(map[ResultKey]Match)}
 	for _, candidate := range candidates {
 		err := query.Scan(candidate.(*Broadcast))
 		if err != nil {

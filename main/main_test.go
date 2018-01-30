@@ -36,10 +36,14 @@ func BenchmarkFindClosestBroadcasts(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	point := store.Point{13.4, 52.52}
+	// point := store.Point{13.4, 52.52} // Berlin
+	// freqs := []Freq{100100, 100200}
+	point := store.Point{-74.0059413, 40.7127837} // New York
+	freqs := []Freq{1520, 1310}
 	b.Run("Find point", func(b *testing.B) {
 		for n := 0; n < b.N; n++ {
-			_, err := broadcastsStore.FindClosestBroadcasts(point)
+			radius := 58000.0
+			_, err := broadcastsStore.FindClosestBroadcasts(point, radius, MatchAnyFrequency{freqs})
 			if err != nil {
 				b.Fatal(err)
 			}

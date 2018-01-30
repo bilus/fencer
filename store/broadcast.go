@@ -14,12 +14,13 @@ type Broadcast struct {
 	BroadcastId      int64
 	BroadcastType    string
 	BaselineData     string
+	Freq             *int64
 	bounds           *rtreego.Rect
 	coverageArea     []*geos.PGeometry
 	combinedCoverage *geos.Geometry
 }
 
-func NewBroadcast(id int64, broadcastType string, baselineData string, bounds pq.PostGISBox2D, coverageArea geom.T) (*Broadcast, error) {
+func NewBroadcast(id int64, broadcastType string, baselineData string, freq *int64, bounds pq.PostGISBox2D, coverageArea geom.T) (*Broadcast, error) {
 	multiPoly := coverageArea.(*geom.MultiPolygon)
 	preparedCoverageAreaGeometries := make([]*geos.PGeometry, multiPoly.NumPolygons())
 	coverageAreaGeometries := make([]*geos.Geometry, multiPoly.NumPolygons())
@@ -44,6 +45,7 @@ func NewBroadcast(id int64, broadcastType string, baselineData string, bounds pq
 		id,
 		broadcastType,
 		baselineData,
+		freq,
 		rtBounds,
 		preparedCoverageAreaGeometries,
 		combinedCoverage,
