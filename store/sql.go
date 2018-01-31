@@ -47,21 +47,27 @@ func newBroadcastFromRow(rows *sql.Rows) (*Broadcast, error) {
 	if err := rows.Scan(&id, &broadcastType, &baselineData, &boundingBox, &geoJson, &freq, &country, &eid, &piCode); err != nil {
 		return nil, err
 	}
-	if geoJson.Valid && broadcastType.Valid && baselineData.Valid {
-		var covArea geom.T
-		if err := geojson.Unmarshal([]byte(geoJson.String), &covArea); err != nil {
-			return nil, err
-		}
-		if broadcast, err := NewBroadcast(id, broadcastType.String, baselineData.String,
-			optionalInt64(freq), optionalString(eid), optionalString(country), optionalString(piCode),
-			boundingBox, covArea); err != nil {
-			return nil, err
-		} else {
-			return broadcast, nil
-		}
-	} else {
+	if !geoJson.Valid || broadcastType.Valid || baselineData.Valid {
 		return nil, MissingDataError
 	}
+	var covArea geom.T
+	if err := geojson.Unmarshal([]byte(geoJson.String), &covArea); err != nil {
+		return nil, err
+	}
+	broadcast, err := NewBroadcast(
+		id,
+		broadcastType.String,
+		baselineData.String,
+		(*Freq)(optionalInt64(freq)),
+		(*Eid)(optionalString(eid)),
+		(*Country)(optionalString(country)),
+		(*PiCode)(optionalString(piCode)),
+		boundingBox,
+		covArea)
+	if err != nil {
+		return nil, err
+	}
+	return broadcast, nil
 }
 
 func optionalInt64(i sql.NullInt64) *int64 {

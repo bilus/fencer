@@ -8,23 +8,44 @@ import (
 	pq "github.com/mc2soft/pq-types"
 	geom "github.com/twpayne/go-geom"
 	"log"
+	"strings"
 )
+
+type Freq int64
+
+type Country string
+
+func (country Country) Equals(other Country) bool {
+	return strings.EqualFold(string(country), string(other))
+}
+
+type PiCode string
+
+func (piCode PiCode) Equals(other PiCode) bool {
+	return strings.EqualFold(string(piCode), string(other))
+}
+
+type Eid string
+
+func (eid Eid) Equals(other Eid) bool {
+	return strings.EqualFold(string(eid), string(other))
+}
 
 type Broadcast struct {
 	BroadcastId   int64
 	BroadcastType string
 	BaselineData  string
-	Freq          *int64
-	Eid           *string
-	Country       *string
-	PiCode        *string
+	Freq          *Freq
+	Eid           *Eid
+	Country       *Country
+	PiCode        *PiCode
 
 	bounds           *rtreego.Rect
 	coverageArea     []*geos.PGeometry
 	combinedCoverage *geos.Geometry
 }
 
-func NewBroadcast(id int64, broadcastType string, baselineData string, freq *int64, eid *string, country *string, piCode *string,
+func NewBroadcast(id int64, broadcastType string, baselineData string, freq *Freq, eid *Eid, country *Country, piCode *PiCode,
 	bounds pq.PostGISBox2D, coverageArea geom.T) (*Broadcast, error) {
 
 	multiPoly := coverageArea.(*geom.MultiPolygon)

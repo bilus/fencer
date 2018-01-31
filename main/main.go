@@ -42,20 +42,19 @@ func (ClosestOutside) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
 	return Singleton{}
 }
 
-type Freq int64
+type Freq store.Freq          // Only so we can use it as ResultKey.
+func (Freq) ActsAsResultKey() {}
 
 type MatchFreqs struct {
-	Frequencies []Freq
+	Frequencies []store.Freq
 }
-
-func (Freq) ActsAsResultKey() {}
 
 func (f MatchFreqs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	if broadcast.Freq == nil {
 		return false, nil
 	}
 	for _, freq := range f.Frequencies {
-		if freq == Freq(*broadcast.Freq) {
+		if freq == *broadcast.Freq {
 			return true, nil
 		}
 	}
@@ -68,8 +67,8 @@ func (f MatchFreqs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
 }
 
 type DAB struct {
-	Country string
-	Eid     string
+	Country store.Country
+	Eid     store.Eid
 }
 
 type MatchDABs struct {
@@ -84,7 +83,7 @@ func (filter MatchDABs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	}
 	// log.Printf("Broadcast id=%v Eid=%v country=%v", broadcast.BroadcastId, *broadcast.Eid, *broadcast.Country)
 	for _, dab := range filter.RDSs {
-		if dab.Country == *broadcast.Country && dab.Eid == *broadcast.Eid {
+		if dab.Country.Equals(*broadcast.Country) && dab.Eid.Equals(*broadcast.Eid) {
 			return true, nil
 		}
 	}
@@ -97,9 +96,9 @@ func (MatchDABs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
 }
 
 type RDS struct {
-	Country string
-	PiCode  string
-	Freq    Freq
+	Country store.Country
+	PiCode  store.PiCode
+	Freq    store.Freq
 }
 
 type MatchRDSs struct {
@@ -113,7 +112,7 @@ func (filter MatchRDSs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 		return false, nil
 	}
 	for _, rds := range filter.RDSs {
-		if rds.Country == *broadcast.Country && rds.PiCode == *broadcast.PiCode && rds.Freq == Freq(*broadcast.Freq) {
+		if rds.Country.Equals(*broadcast.Country) && rds.PiCode.Equals(*broadcast.PiCode) && rds.Freq == *broadcast.Freq {
 			return true, nil
 		}
 	}
@@ -122,7 +121,7 @@ func (filter MatchRDSs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 
 func (MatchRDSs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
 	// Safe to dereference, GetResultKey never gets called if IsMatch returns false.
-	return RDS{*broadcast.Country, *broadcast.PiCode, Freq(*broadcast.Freq)}
+	return RDS{*broadcast.Country, *broadcast.PiCode, *broadcast.Freq}
 }
 
 func runExperiment(db *sql.DB) error {
@@ -135,6 +134,7 @@ func runExperiment(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	country := store.Country(isoCountryCode)
 
 	// point := store.Point{-74.0059413, 40.71DB27837} // New York
 	// freqs := []Freq{1520, 1310}
@@ -144,12 +144,12 @@ func runExperiment(db *sql.DB) error {
 
 	point := store.Point{13.4, 52.52} // Berlin
 	dabs := []DAB{
-		{isoCountryCode, "10C6"},
-		{isoCountryCode, "10F2"},
+		{country, "10C6"},
+		{country, "10F2"},
 	}
 	rdss := []RDS{
-		{isoCountryCode, "D3D8", 101000},
-		{isoCountryCode, "D3D9", 98400},
+		{country, "D3D8", 101000},
+		{country, "D3D9", 98400},
 	}
 	results, err := bs.FindClosestBroadcasts(point, radius,
 		[]store.Filter{MatchRDSs{rdss}, MatchDABs{dabs}})
