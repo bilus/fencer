@@ -22,24 +22,20 @@ func main() {
 	}
 }
 
-type Singleton struct{}
+type BroadcastType store.BroadcastType   // Only so we can use it as ResultKey.
+func (s BroadcastType) ActsAsResultKey() {}
 
-type ClosestOutside struct {
-	store.Point
+type MatchBroadcastTypes struct {
+	BroadcastTypes []store.BroadcastType
 }
 
-func (s Singleton) ActsAsResultKey() {}
-
-func (co ClosestOutside) IsMatch(broadcast *store.Broadcast) (bool, error) {
-	dist, err := broadcast.MinDistance(co.Point)
-	if err != nil {
-		return false, err
+func (co MatchBroadcastTypes) IsMatch(broadcast *store.Broadcast) (bool, error) {
+	for _, broadcastType := range co.BroadcastTypes {
+		if broadcastType == broadcast.BroadcastType {
+			return true, nil
+		}
 	}
-	return dist > 0, nil
-}
-
-func (ClosestOutside) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
-	return Singleton{}
+	return false, nil
 }
 
 type Freq store.Freq          // Only so we can use it as ResultKey.
@@ -151,8 +147,12 @@ func runExperiment(db *sql.DB) error {
 		{country, "D3D8", 101000},
 		{country, "D3D9", 98400},
 	}
-	results, err := bs.FindClosestBroadcasts(point, radius,
-		[]store.Filter{MatchRDSs{rdss}, MatchDABs{dabs}})
+	types := []store.BroadcastType{"analog"}
+	results, err := bs.FindClosestBroadcasts(
+		point, radius,
+		[]store.Condition{MatchBroadcastTypes{types}},
+		[]store.Filter{MatchRDSs{rdss}, MatchDABs{dabs}},
+	)
 	if err != nil {
 		return err
 	}

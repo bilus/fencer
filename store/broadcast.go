@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+type BroadcastType string
+
 type Freq int64
 
 type Country string
@@ -33,7 +35,7 @@ func (eid Eid) Equals(other Eid) bool {
 
 type Broadcast struct {
 	BroadcastId   int64
-	BroadcastType string
+	BroadcastType BroadcastType
 	BaselineData  string
 	Freq          *Freq
 	Eid           *Eid
@@ -45,7 +47,7 @@ type Broadcast struct {
 	combinedCoverage *geos.Geometry
 }
 
-func NewBroadcast(id int64, broadcastType string, baselineData string, freq *Freq, eid *Eid, country *Country, piCode *PiCode,
+func NewBroadcast(id int64, broadcastType BroadcastType, baselineData string, freq *Freq, eid *Eid, country *Country, piCode *PiCode,
 	bounds pq.PostGISBox2D, coverageArea geom.T) (*Broadcast, error) {
 
 	multiPoly := coverageArea.(*geom.MultiPolygon)

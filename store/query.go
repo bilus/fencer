@@ -4,9 +4,17 @@ type ResultKey interface {
 	ActsAsResultKey()
 }
 
-type Filter interface {
+type Condition interface {
 	IsMatch(broadcast *Broadcast) (bool, error)
+}
+
+type Aggregation interface {
 	GetResultKey(broadcast *Broadcast) ResultKey
+}
+
+type Filter interface {
+	Condition
+	Aggregation
 }
 
 type Match struct {
@@ -14,14 +22,32 @@ type Match struct {
 	cachedDistance float64
 }
 
+// NeighbourQuery is a nearest neighour query returning broadcasts matching the filters,
+// that are closest to the Point, at most one Match per ResultKey.
+//
+// Filters' precedence:
+//
+// ConjFilter0 AND ConjFilter1 AND ... ConjFilterN AND (DisjFilter0 OR DisjFilter1 OR ... DisjFilterN)
 type NeighbourQuery struct {
 	Point
-	Filters []Filter
-	Matches map[ResultKey]Match
+	Preconditions []Condition // Pre-conditions forming a logical conjunction. NOTE: Take precedence over Filters.
+	Filters       []Filter    // Logical disjunction.
+	matches       map[ResultKey]Match
+}
+
+func NewNeighbourQuery(point Point, preconditions []Condition, filters []Filter) NeighbourQuery {
+	return NeighbourQuery{point, preconditions, filters, make(map[ResultKey]Match)}
 }
 
 func (q *NeighbourQuery) Scan(broadcast *Broadcast) error {
-	keys, err := anyMatch(q.Filters, broadcast)
+	match, err := allMatch(q.Preconditions, broadcast)
+	if err != nil {
+		return err
+	}
+	if !match {
+		return nil
+	}
+	keys, err := filter(q.Filters, broadcast)
 	if err != nil {
 		return err
 	}
@@ -33,10 +59,9 @@ func (q *NeighbourQuery) Scan(broadcast *Broadcast) error {
 		return err
 	}
 	for _, key := range keys {
-		existingMatch, exists := q.Matches[key]
-		// PERF: Need not calc dist if !exists.
+		existingMatch, exists := q.matches[key]
 		if !exists || dist < existingMatch.cachedDistance {
-			q.Matches[key] = Match{broadcast, dist}
+			q.matches[key] = Match{broadcast, dist}
 		}
 	}
 	return nil
@@ -45,7 +70,7 @@ func (q *NeighbourQuery) Scan(broadcast *Broadcast) error {
 func (q *NeighbourQuery) GetMatchingBroadcasts() []*Broadcast {
 	broadcasts := make([]*Broadcast, 0)
 	matched := make(map[int64]struct{})
-	for _, match := range q.Matches {
+	for _, match := range q.matches {
 		broadcastId := match.Broadcast.BroadcastId
 		_, isMatched := matched[broadcastId]
 		if !isMatched {
@@ -56,7 +81,20 @@ func (q *NeighbourQuery) GetMatchingBroadcasts() []*Broadcast {
 	return broadcasts
 }
 
-func anyMatch(filters []Filter, broadcast *Broadcast) ([]ResultKey, error) {
+func allMatch(conditions []Condition, broadcast *Broadcast) (bool, error) {
+	for _, condition := range conditions {
+		match, err := condition.IsMatch(broadcast)
+		if err != nil {
+			return false, err
+		}
+		if !match {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func filter(filters []Filter, broadcast *Broadcast) ([]ResultKey, error) {
 	keys := make([]ResultKey, 0)
 	for _, filter := range filters {
 		match, err := filter.IsMatch(broadcast)

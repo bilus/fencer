@@ -55,7 +55,7 @@ func (store *BroadcastStore) FindBroadcasts(point Point) ([]rtreego.Spatial, err
 	return broadcasts, nil
 }
 
-func (store *BroadcastStore) FindClosestBroadcasts(point Point, radiusMeters float64, filters []Filter) ([]*Broadcast, error) {
+func (store *BroadcastStore) FindClosestBroadcasts(point Point, radiusMeters float64, preconditions []Condition, filters []Filter) ([]*Broadcast, error) {
 	bounds, err := geomBoundsAround(point, radiusMeters)
 	if err != nil {
 		log.Fatal(err)
@@ -66,7 +66,7 @@ func (store *BroadcastStore) FindClosestBroadcasts(point Point, radiusMeters flo
 		return nil, nil
 	}
 
-	query := NeighbourQuery{point, filters, make(map[ResultKey]Match)}
+	query := NewNeighbourQuery(point, preconditions, filters)
 	for _, candidate := range candidates {
 		err := query.Scan(candidate.(*Broadcast))
 		if err != nil {
