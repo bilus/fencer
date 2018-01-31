@@ -47,7 +47,7 @@ func newBroadcastFromRow(rows *sql.Rows) (*Broadcast, error) {
 	if err := rows.Scan(&id, &broadcastType, &baselineData, &boundingBox, &geoJson, &freq, &country, &eid, &piCode); err != nil {
 		return nil, err
 	}
-	if !geoJson.Valid || broadcastType.Valid || baselineData.Valid {
+	if !geoJson.Valid || !broadcastType.Valid || !baselineData.Valid {
 		return nil, MissingDataError
 	}
 	var covArea geom.T
@@ -56,7 +56,7 @@ func newBroadcastFromRow(rows *sql.Rows) (*Broadcast, error) {
 	}
 	broadcast, err := NewBroadcast(
 		id,
-		broadcastType.String,
+		BroadcastType(broadcastType.String),
 		baselineData.String,
 		(*Freq)(optionalInt64(freq)),
 		(*Eid)(optionalString(eid)),
