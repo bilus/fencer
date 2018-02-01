@@ -41,7 +41,7 @@ func FilterContaining(point *geos.Geometry) rtreego.Filter {
 	}
 }
 
-func (store *BroadcastStore) FindBroadcasts(point Point) ([]rtreego.Spatial, error) {
+func (store *BroadcastStore) FindBroadcasts(point Point) ([]*Broadcast, error) {
 	geosPoint, err := geos.NewPoint(geos.NewCoord(point[0], point[1]))
 	if err != nil {
 		return nil, err
@@ -51,7 +51,11 @@ func (store *BroadcastStore) FindBroadcasts(point Point) ([]rtreego.Spatial, err
 	if err != nil {
 		return nil, err
 	}
-	broadcasts := store.SearchIntersect(p, FilterContaining(geosPoint))
+	spatials := store.SearchIntersect(p, FilterContaining(geosPoint))
+	broadcasts := make([]*Broadcast, len(spatials))
+	for i, spatial := range spatials {
+		broadcasts[i] = spatial.(*Broadcast)
+	}
 	return broadcasts, nil
 }
 
