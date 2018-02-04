@@ -1,24 +1,23 @@
-package store
+package query
 
-type Feature interface {
-	MinDistance(point Point) (float64, error)
-	Key() ResultKey
-}
+import (
+	"github.com/bilus/fencer/feature"
+)
 
 type ResultKey interface {
 	ActsAsResultKey()
 }
 
 type Condition interface {
-	IsMatch(feature Feature) (bool, error)
+	IsMatch(feature feature.Feature) (bool, error)
 }
 
 type Distinctor interface {
-	DistinctKey(feature Feature) ResultKey
+	DistinctKey(feature feature.Feature) ResultKey
 }
 
 type Reducer interface {
-	Reduce(matches map[ResultKey]Match, keys []ResultKey, feature Feature) error
+	Reduce(matches map[ResultKey]Match, keys []ResultKey, feature feature.Feature) error
 }
 
 type Filter interface {
@@ -27,27 +26,27 @@ type Filter interface {
 }
 
 type Match struct {
-	Feature Feature
+	Feature feature.Feature
 	Cache   interface{}
 }
 
-// NeighbourQuery is a nearest neighour query returning features matching the filters,
+// Query is a nearest neighour query returning features matching the filters,
 // that are closest to the Point, at most one Match per ResultKey.
 //
 // Precedence:
 // Precondition0 AND Precondition1 AND ... PreconditionN AND (Filter0 OR Filter1 OR ... FilterN)
-type NeighbourQuery struct {
+type Query struct {
 	Preconditions []Condition // Logical conjunction.
 	Filters       []Filter    // Logical disjunction.
 	Reducer
 	matches map[ResultKey]Match
 }
 
-func NewNeighbourQuery(preconditions []Condition, filters []Filter, reducer Reducer) NeighbourQuery {
-	return NeighbourQuery{preconditions, filters, reducer, make(map[ResultKey]Match)}
+func New(preconditions []Condition, filters []Filter, reducer Reducer) Query {
+	return Query{preconditions, filters, reducer, make(map[ResultKey]Match)}
 }
 
-func (q *NeighbourQuery) Scan(feature Feature) error {
+func (q *Query) Scan(feature feature.Feature) error {
 	match, err := allMatch(q.Preconditions, feature)
 	if err != nil {
 		return err
@@ -66,9 +65,9 @@ func (q *NeighbourQuery) Scan(feature Feature) error {
 	return q.Reducer.Reduce(q.matches, keys, feature)
 }
 
-func (q *NeighbourQuery) GetMatchingFeatures() []Feature {
-	features := make([]Feature, 0)
-	matched := make(map[ResultKey]struct{})
+func (q *Query) MatchingFeatures() []feature.Feature {
+	features := make([]feature.Feature, 0)
+	matched := make(map[feature.Key]struct{})
 	for _, match := range q.matches {
 		key := match.Feature.Key()
 		_, isMatched := matched[key]
@@ -80,7 +79,7 @@ func (q *NeighbourQuery) GetMatchingFeatures() []Feature {
 	return features
 }
 
-func allMatch(conditions []Condition, feature Feature) (bool, error) {
+func allMatch(conditions []Condition, feature feature.Feature) (bool, error) {
 	for _, condition := range conditions {
 		match, err := condition.IsMatch(feature)
 		if err != nil {
@@ -93,7 +92,7 @@ func allMatch(conditions []Condition, feature Feature) (bool, error) {
 	return true, nil
 }
 
-func filter(filters []Filter, feature Feature) ([]ResultKey, error) {
+func filter(filters []Filter, feature feature.Feature) ([]ResultKey, error) {
 	keys := make([]ResultKey, 0)
 	for _, filter := range filters {
 		match, err := filter.IsMatch(feature)

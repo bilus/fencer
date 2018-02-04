@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"fmt"
+	"github.com/bilus/fencer/feature"
 	"github.com/bilus/gogeos/geos"
 	"github.com/bilus/rtreego"
 	pq "github.com/mc2soft/pq-types"
@@ -12,7 +13,7 @@ import (
 
 type BroadcastId int64
 
-func (BroadcastId) ActsAsResultKey() {}
+func (BroadcastId) ActsAsFeatureKey() {}
 
 type BroadcastType string
 
@@ -113,7 +114,7 @@ func lengths(bounds pq.PostGISBox2D) []float64 {
 	}
 }
 
-func (b *Broadcast) Key() ResultKey {
+func (b *Broadcast) Key() feature.Key {
 	return b.BroadcastId
 }
 

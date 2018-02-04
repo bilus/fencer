@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"github.com/bilus/fencer/query"
 	"github.com/bilus/rtreego"
 	"github.com/paulmach/go.geo"
 	"log"
@@ -49,10 +50,10 @@ func (store *BroadcastStore) FindBroadcasts(point Point) ([]*Broadcast, error) {
 	}
 	log.Println("candidates =", len(candidates), point)
 
-	// TODO: Refactor using NewNeighbourQuery. But we first need to put the
+	// TODO: Refactor using NewQuery. But we first need to put the
 	// code to select the nearest broadcast into a Filter or Aggregator.
 	// Otherwise, it generates unnecessary overhead.
-	// query := NewNeighbourQuery(point, conditions, nil)
+	// query := NewQuery(point, conditions, nil)
 	// conditions := []Condition{MatchContaining{point}}
 	// for _, candidate := range candidates {
 	// 	err := query.Scan(candidate.(*Broadcast))
@@ -60,7 +61,7 @@ func (store *BroadcastStore) FindBroadcasts(point Point) ([]*Broadcast, error) {
 	// 		return nil, err
 	// 	}
 	// }
-	// return query.GetMatchingFeatures(), nil
+	// return query.MatchingFeatures(), nil
 
 	condition := MatchContaining{point}
 	broadcasts := make([]*Broadcast, 0, len(candidates))
@@ -78,7 +79,7 @@ func (store *BroadcastStore) FindBroadcasts(point Point) ([]*Broadcast, error) {
 	return broadcasts, nil
 }
 
-func (store *BroadcastStore) FindClosestBroadcasts(point Point, radiusMeters float64, preconditions []Condition, filters []Filter, reducer Reducer) ([]*Broadcast, error) {
+func (store *BroadcastStore) FindClosestBroadcasts(point Point, radiusMeters float64, preconditions []query.Condition, filters []query.Filter, reducer query.Reducer) ([]*Broadcast, error) {
 	bounds, err := geomBoundsAround(point, radiusMeters)
 	if err != nil {
 		log.Fatal(err)
@@ -89,14 +90,14 @@ func (store *BroadcastStore) FindClosestBroadcasts(point Point, radiusMeters flo
 		return nil, nil
 	}
 
-	query := NewNeighbourQuery(preconditions, filters, reducer)
+	query := query.New(preconditions, filters, reducer)
 	for _, candidate := range candidates {
 		err := query.Scan(candidate.(*Broadcast))
 		if err != nil {
 			return nil, err
 		}
 	}
-	features := query.GetMatchingFeatures()
+	features := query.MatchingFeatures()
 	broadcasts := make([]*Broadcast, len(features))
 	for i, feature := range features {
 		broadcasts[i] = feature.(*Broadcast)

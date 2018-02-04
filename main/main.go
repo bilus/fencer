@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"github.com/bilus/fencer/countries"
+	"github.com/bilus/fencer/feature"
+	"github.com/bilus/fencer/query"
 	"github.com/bilus/fencer/store"
 	_ "github.com/jackc/pgx/stdlib"
 	_ "github.com/lib/pq"
@@ -26,12 +28,12 @@ type MinDistanceReducer struct {
 	store.Point
 }
 
-func (r MinDistanceReducer) Reduce(matches map[store.ResultKey]store.Match, keys []store.ResultKey, feature store.Feature) error {
-	dist, err := feature.MinDistance(r.Point)
+func (r MinDistanceReducer) Reduce(matches map[query.ResultKey]query.Match, keys []query.ResultKey, feature feature.Feature) error {
+	dist, err := feature.(*store.Broadcast).MinDistance(r.Point)
 	if err != nil {
 		return err
 	}
-	newMatch := store.Match{feature, dist}
+	newMatch := query.Match{feature, dist}
 	for _, key := range keys {
 		existingMatch, exists := matches[key]
 		if !exists || dist < existingMatch.Cache.(float64) {
@@ -43,8 +45,8 @@ func (r MinDistanceReducer) Reduce(matches map[store.ResultKey]store.Match, keys
 
 type TakeAllReducer struct{}
 
-func (TakeAllReducer) Reduce(matches map[store.ResultKey]store.Match, keys []store.ResultKey, feature store.Feature) error {
-	newMatch := store.Match{feature, struct{}{}}
+func (TakeAllReducer) Reduce(matches map[query.ResultKey]query.Match, keys []query.ResultKey, feature feature.Feature) error {
+	newMatch := query.Match{feature, struct{}{}}
 	for _, key := range keys {
 		matches[key] = newMatch
 	}
@@ -58,7 +60,7 @@ type MatchBroadcastTypes struct {
 	BroadcastTypes []store.BroadcastType
 }
 
-func (co MatchBroadcastTypes) IsMatch(feature store.Feature) (bool, error) {
+func (co MatchBroadcastTypes) IsMatch(feature feature.Feature) (bool, error) {
 	broadcast := feature.(*store.Broadcast)
 	for _, broadcastType := range co.BroadcastTypes {
 		if broadcastType == broadcast.BroadcastType {
@@ -75,7 +77,7 @@ type MatchFreqs struct {
 	Frequencies []store.Freq
 }
 
-func (f MatchFreqs) IsMatch(feature store.Feature) (bool, error) {
+func (f MatchFreqs) IsMatch(feature feature.Feature) (bool, error) {
 	broadcast := feature.(*store.Broadcast)
 	if broadcast.Freq == nil {
 		return false, nil
@@ -88,7 +90,7 @@ func (f MatchFreqs) IsMatch(feature store.Feature) (bool, error) {
 	return false, nil
 }
 
-func (f MatchFreqs) DistinctKey(feature store.Feature) store.ResultKey {
+func (f MatchFreqs) DistinctKey(feature feature.Feature) query.ResultKey {
 	broadcast := feature.(*store.Broadcast)
 	// Safe to dereference, DistinctKey never gets called if IsMatch returns false.
 	return Freq(*broadcast.Freq)
@@ -105,7 +107,7 @@ type MatchDABs struct {
 
 func (DAB) ActsAsResultKey() {}
 
-func (filter MatchDABs) IsMatch(feature store.Feature) (bool, error) {
+func (filter MatchDABs) IsMatch(feature feature.Feature) (bool, error) {
 	broadcast := feature.(*store.Broadcast)
 	if broadcast.Eid == nil || broadcast.Country == nil {
 		return false, nil
@@ -118,7 +120,7 @@ func (filter MatchDABs) IsMatch(feature store.Feature) (bool, error) {
 	return false, nil
 }
 
-func (MatchDABs) DistinctKey(feature store.Feature) store.ResultKey {
+func (MatchDABs) DistinctKey(feature feature.Feature) query.ResultKey {
 	broadcast := feature.(*store.Broadcast)
 	// Safe to dereference, DistinctKey never gets called if IsMatch returns false.
 	return DAB{*broadcast.Country, *broadcast.Eid}
@@ -136,7 +138,7 @@ type MatchRDSs struct {
 
 func (RDS) ActsAsResultKey() {}
 
-func (filter MatchRDSs) IsMatch(feature store.Feature) (bool, error) {
+func (filter MatchRDSs) IsMatch(feature feature.Feature) (bool, error) {
 	broadcast := feature.(*store.Broadcast)
 	if broadcast.Country == nil || broadcast.PiCode == nil || broadcast.Freq == nil {
 		return false, nil
@@ -149,7 +151,7 @@ func (filter MatchRDSs) IsMatch(feature store.Feature) (bool, error) {
 	return false, nil
 }
 
-func (MatchRDSs) DistinctKey(feature store.Feature) store.ResultKey {
+func (MatchRDSs) DistinctKey(feature feature.Feature) query.ResultKey {
 	broadcast := feature.(*store.Broadcast)
 	// Safe to dereference, DistinctKey never gets called if IsMatch returns false.
 	return RDS{*broadcast.Country, *broadcast.PiCode, *broadcast.Freq}
@@ -185,8 +187,8 @@ func runExperiment(db *sql.DB) error {
 	types := []store.BroadcastType{"analog"}
 	results, err := bs.FindClosestBroadcasts(
 		point, radius,
-		[]store.Condition{MatchBroadcastTypes{types}},
-		[]store.Filter{MatchRDSs{rdss}, MatchDABs{dabs}},
+		[]query.Condition{MatchBroadcastTypes{types}},
+		[]query.Filter{MatchRDSs{rdss}, MatchDABs{dabs}},
 		MinDistanceReducer{point},
 	)
 	if err != nil {
