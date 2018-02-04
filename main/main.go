@@ -6,6 +6,7 @@ import (
 	"github.com/bilus/fencer/feature"
 	"github.com/bilus/fencer/query"
 	"github.com/bilus/fencer/store"
+	"github.com/bilus/rtreego"
 	_ "github.com/jackc/pgx/stdlib"
 	_ "github.com/lib/pq"
 	"log"
@@ -25,7 +26,7 @@ func main() {
 }
 
 type MinDistanceReducer struct {
-	store.Point
+	rtreego.Point
 }
 
 func (r MinDistanceReducer) Reduce(matches map[query.ResultKey]query.Match, keys []query.ResultKey, feature feature.Feature) error {
@@ -158,9 +159,12 @@ func (MatchRDSs) DistinctKey(feature feature.Feature) query.ResultKey {
 }
 
 func runExperiment(db *sql.DB) error {
-	bs, err := store.LoadFromSQL(db)
+	bs, numSkipped, err := store.LoadFromSQL(db)
 	if err != nil {
 		return err
+	}
+	if numSkipped > 0 {
+		log.Printf("Skipped: %v broadcasts due to errors or missing data", numSkipped)
 	}
 	radius := 58000.0
 	isoCountryCode, err := countries.GccToIso("DE0")
@@ -175,7 +179,7 @@ func runExperiment(db *sql.DB) error {
 
 	// NEED TESTS!
 
-	point := store.Point{13.4, 52.52} // Berlin
+	point := rtreego.Point{13.4, 52.52} // Berlin
 	dabs := []DAB{
 		{country, "10C6"},
 		{country, "10F2"},
@@ -185,7 +189,7 @@ func runExperiment(db *sql.DB) error {
 		{country, "D3D9", 98400},
 	}
 	types := []store.BroadcastType{"analog"}
-	results, err := bs.FindClosestBroadcasts(
+	results, err := bs.Find(
 		point, radius,
 		[]query.Condition{MatchBroadcastTypes{types}},
 		[]query.Filter{MatchRDSs{rdss}, MatchDABs{dabs}},
@@ -196,7 +200,7 @@ func runExperiment(db *sql.DB) error {
 	}
 
 	for _, result := range results {
-		println(result.BroadcastId)
+		println(result.Key().(store.BroadcastId))
 	}
 	log.Printf("%v result(s).", len(results))
 	return nil

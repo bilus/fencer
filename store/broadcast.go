@@ -2,7 +2,6 @@ package store
 
 import (
 	"errors"
-	"fmt"
 	"github.com/bilus/fencer/feature"
 	"github.com/bilus/gogeos/geos"
 	"github.com/bilus/rtreego"
@@ -118,26 +117,25 @@ func (b *Broadcast) Key() feature.Key {
 	return b.BroadcastId
 }
 
-func (b *Broadcast) Contains(point Point) bool {
-	// TODO: panic?
+func (b *Broadcast) Contains(point rtreego.Point) (bool, error) {
 	geosPoint, err := geos.NewPoint(geos.NewCoord(point[0], point[1]))
 	if err != nil {
-		panic(err)
+		return false, err
 	}
 
 	for _, geometry := range b.coverageArea {
 		inter, err := geometry.Covers(geosPoint) // TODO: Prepare before contains
 		if err != nil {
-			panic(fmt.Sprintf("Ooops: %v", err))
+			return false, err
 		}
 		if inter {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
-func (broadcast *Broadcast) MinDistance(point Point) (float64, error) {
+func (broadcast *Broadcast) MinDistance(point rtreego.Point) (float64, error) {
 	geosPoint, err := geos.NewPoint(geos.NewCoord(point[0], point[1]))
 	if err != nil {
 		return -1, err

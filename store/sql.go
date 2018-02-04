@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"github.com/bilus/fencer/feature"
 	pq "github.com/mc2soft/pq-types"
 	geom "github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/geojson"
@@ -12,8 +13,8 @@ var MissingDataError = errors.New("Missing broadcast data")
 
 var loadBroadcastsQuery = "SELECT id, broadcast_type, baseline_data, ST_Extent(coverage_area::geometry)::box2d, ST_AsGeoJson(coverage_area::geometry), freq, country, eid, pi_code FROM broadcasts GROUP BY id"
 
-func LoadBroadcastsFromSQL(db *sql.DB) ([]*Broadcast, int, error) {
-	broadcasts := make([]*Broadcast, 0)
+func LoadBroadcastsFromSQL(db *sql.DB) ([]feature.Feature, int, error) {
+	broadcasts := make([]feature.Feature, 0)
 	rows, err := db.Query(loadBroadcastsQuery)
 	if err != nil {
 		return nil, 0, err
@@ -33,7 +34,7 @@ func LoadBroadcastsFromSQL(db *sql.DB) ([]*Broadcast, int, error) {
 	return broadcasts, numSkipped, nil
 }
 
-func newBroadcastFromRow(rows *sql.Rows) (*Broadcast, error) {
+func newBroadcastFromRow(rows *sql.Rows) (feature.Feature, error) {
 	var id int64
 	var broadcastType sql.NullString
 	var baselineData sql.NullString
