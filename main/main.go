@@ -22,6 +22,25 @@ func main() {
 	}
 }
 
+type MinDistanceReducer struct {
+	store.Point
+}
+
+func (r MinDistanceReducer) Reduce(matches map[store.ResultKey]store.Match, keys []store.ResultKey, feature store.Feature) error {
+	dist, err := feature.MinDistance(r.Point)
+	if err != nil {
+		return err
+	}
+	newMatch := store.Match{feature, dist}
+	for _, key := range keys {
+		existingMatch, exists := matches[key]
+		if !exists || dist < existingMatch.Cache.(float64) {
+			matches[key] = newMatch
+		}
+	}
+	return nil
+}
+
 type BroadcastType store.BroadcastType   // Only so we can use it as ResultKey.
 func (s BroadcastType) ActsAsResultKey() {}
 
@@ -29,7 +48,8 @@ type MatchBroadcastTypes struct {
 	BroadcastTypes []store.BroadcastType
 }
 
-func (co MatchBroadcastTypes) IsMatch(broadcast *store.Broadcast) (bool, error) {
+func (co MatchBroadcastTypes) IsMatch(feature store.Feature) (bool, error) {
+	broadcast := feature.(*store.Broadcast)
 	for _, broadcastType := range co.BroadcastTypes {
 		if broadcastType == broadcast.BroadcastType {
 			return true, nil
@@ -45,7 +65,8 @@ type MatchFreqs struct {
 	Frequencies []store.Freq
 }
 
-func (f MatchFreqs) IsMatch(broadcast *store.Broadcast) (bool, error) {
+func (f MatchFreqs) IsMatch(feature store.Feature) (bool, error) {
+	broadcast := feature.(*store.Broadcast)
 	if broadcast.Freq == nil {
 		return false, nil
 	}
@@ -57,8 +78,9 @@ func (f MatchFreqs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	return false, nil
 }
 
-func (f MatchFreqs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
-	// Safe to dereference, GetResultKey never gets called if IsMatch returns false.
+func (f MatchFreqs) DistinctKey(feature store.Feature) store.ResultKey {
+	broadcast := feature.(*store.Broadcast)
+	// Safe to dereference, DistinctKey never gets called if IsMatch returns false.
 	return Freq(*broadcast.Freq)
 }
 
@@ -73,11 +95,11 @@ type MatchDABs struct {
 
 func (DAB) ActsAsResultKey() {}
 
-func (filter MatchDABs) IsMatch(broadcast *store.Broadcast) (bool, error) {
+func (filter MatchDABs) IsMatch(feature store.Feature) (bool, error) {
+	broadcast := feature.(*store.Broadcast)
 	if broadcast.Eid == nil || broadcast.Country == nil {
 		return false, nil
 	}
-	// log.Printf("Broadcast id=%v Eid=%v country=%v", broadcast.BroadcastId, *broadcast.Eid, *broadcast.Country)
 	for _, dab := range filter.RDSs {
 		if dab.Country.Equals(*broadcast.Country) && dab.Eid.Equals(*broadcast.Eid) {
 			return true, nil
@@ -86,8 +108,9 @@ func (filter MatchDABs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	return false, nil
 }
 
-func (MatchDABs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
-	// Safe to dereference, GetResultKey never gets called if IsMatch returns false.
+func (MatchDABs) DistinctKey(feature store.Feature) store.ResultKey {
+	broadcast := feature.(*store.Broadcast)
+	// Safe to dereference, DistinctKey never gets called if IsMatch returns false.
 	return DAB{*broadcast.Country, *broadcast.Eid}
 }
 
@@ -103,7 +126,8 @@ type MatchRDSs struct {
 
 func (RDS) ActsAsResultKey() {}
 
-func (filter MatchRDSs) IsMatch(broadcast *store.Broadcast) (bool, error) {
+func (filter MatchRDSs) IsMatch(feature store.Feature) (bool, error) {
+	broadcast := feature.(*store.Broadcast)
 	if broadcast.Country == nil || broadcast.PiCode == nil || broadcast.Freq == nil {
 		return false, nil
 	}
@@ -115,8 +139,9 @@ func (filter MatchRDSs) IsMatch(broadcast *store.Broadcast) (bool, error) {
 	return false, nil
 }
 
-func (MatchRDSs) GetResultKey(broadcast *store.Broadcast) store.ResultKey {
-	// Safe to dereference, GetResultKey never gets called if IsMatch returns false.
+func (MatchRDSs) DistinctKey(feature store.Feature) store.ResultKey {
+	broadcast := feature.(*store.Broadcast)
+	// Safe to dereference, DistinctKey never gets called if IsMatch returns false.
 	return RDS{*broadcast.Country, *broadcast.PiCode, *broadcast.Freq}
 }
 
@@ -152,6 +177,7 @@ func runExperiment(db *sql.DB) error {
 		point, radius,
 		[]store.Condition{MatchBroadcastTypes{types}},
 		[]store.Filter{MatchRDSs{rdss}, MatchDABs{dabs}},
+		MinDistanceReducer{point},
 	)
 	if err != nil {
 		return err

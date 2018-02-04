@@ -1,106 +1,88 @@
 package store
 
-// import (
-// 	"github.com/bilus/rtreego"
-// )
+type Feature interface {
+	MinDistance(point Point) (float64, error)
+	Key() ResultKey
+}
 
 type ResultKey interface {
 	ActsAsResultKey()
 }
 
 type Condition interface {
-	IsMatch(broadcast *Broadcast) (bool, error)
+	IsMatch(feature Feature) (bool, error)
 }
 
-// Possible optimization:
-// func RTreeGoFilter(cond Condition) rtreego.Filter {
-// 	return func(results []rtreego.Spatial, object rtreego.Spatial) (refuse, abort bool) {
-// 		var err error
-// 		refuse, err = cond.IsMatch(object.(*Broadcast))
-// 		if err != nil {
-// 			panic(err)
-// 		}
-// 		abort = false
-// 		return
-// 	}
-// }
+type Distinctor interface {
+	DistinctKey(feature Feature) ResultKey
+}
 
-type Aggregation interface {
-	GetResultKey(broadcast *Broadcast) ResultKey
+type Reducer interface {
+	Reduce(matches map[ResultKey]Match, keys []ResultKey, feature Feature) error
 }
 
 type Filter interface {
 	Condition
-	Aggregation
+	Distinctor
 }
 
 type Match struct {
-	Broadcast      *Broadcast
-	cachedDistance float64
+	Feature Feature
+	Cache   interface{}
 }
 
-// NeighbourQuery is a nearest neighour query returning broadcasts matching the filters,
+// NeighbourQuery is a nearest neighour query returning features matching the filters,
 // that are closest to the Point, at most one Match per ResultKey.
 //
-// Filters' precedence:
-//
-// ConjFilter0 AND ConjFilter1 AND ... ConjFilterN AND (DisjFilter0 OR DisjFilter1 OR ... DisjFilterN)
+// Precedence:
+// Precondition0 AND Precondition1 AND ... PreconditionN AND (Filter0 OR Filter1 OR ... FilterN)
 type NeighbourQuery struct {
-	Point
-	Preconditions []Condition // Pre-conditions forming a logical conjunction. NOTE: Take precedence over Filters.
+	Preconditions []Condition // Logical conjunction.
 	Filters       []Filter    // Logical disjunction.
-	matches       map[ResultKey]Match
+	Reducer
+	matches map[ResultKey]Match
 }
 
-func NewNeighbourQuery(point Point, preconditions []Condition, filters []Filter) NeighbourQuery {
-	return NeighbourQuery{point, preconditions, filters, make(map[ResultKey]Match)}
+func NewNeighbourQuery(preconditions []Condition, filters []Filter, reducer Reducer) NeighbourQuery {
+	return NeighbourQuery{preconditions, filters, reducer, make(map[ResultKey]Match)}
 }
 
-func (q *NeighbourQuery) Scan(broadcast *Broadcast) error {
-	match, err := allMatch(q.Preconditions, broadcast)
+func (q *NeighbourQuery) Scan(feature Feature) error {
+	match, err := allMatch(q.Preconditions, feature)
 	if err != nil {
 		return err
 	}
 	if !match {
 		return nil
 	}
-	keys, err := filter(q.Filters, broadcast)
+
+	keys, err := filter(q.Filters, feature)
 	if err != nil {
 		return err
 	}
 	if len(keys) == 0 {
 		return nil
 	}
-	dist, err := broadcast.MinDistance(q.Point)
-	if err != nil {
-		return err
-	}
-	for _, key := range keys {
-		existingMatch, exists := q.matches[key]
-		if !exists || dist < existingMatch.cachedDistance {
-			q.matches[key] = Match{broadcast, dist}
-		}
-	}
-	return nil
+	return q.Reducer.Reduce(q.matches, keys, feature)
 }
 
-func (q *NeighbourQuery) GetMatchingBroadcasts() []*Broadcast {
-	broadcasts := make([]*Broadcast, 0)
-	matched := make(map[int64]struct{})
+func (q *NeighbourQuery) GetMatchingFeatures() []Feature {
+	features := make([]Feature, 0)
+	matched := make(map[ResultKey]struct{})
 	for _, match := range q.matches {
-		broadcastId := match.Broadcast.BroadcastId
-		_, isMatched := matched[broadcastId]
+		key := match.Feature.Key()
+		_, isMatched := matched[key]
 		if !isMatched {
-			broadcasts = append(broadcasts, match.Broadcast)
-			matched[broadcastId] = struct{}{}
+			features = append(features, match.Feature)
+			matched[key] = struct{}{}
 		}
 	}
-	return broadcasts
+	return features
 }
 
-func allMatch(conditions []Condition, broadcast *Broadcast) (bool, error) {
+func allMatch(conditions []Condition, feature Feature) (bool, error) {
 	for _, condition := range conditions {
-		match, err := condition.IsMatch(broadcast)
+		match, err := condition.IsMatch(feature)
 		if err != nil {
 			return false, err
 		}
@@ -111,15 +93,15 @@ func allMatch(conditions []Condition, broadcast *Broadcast) (bool, error) {
 	return true, nil
 }
 
-func filter(filters []Filter, broadcast *Broadcast) ([]ResultKey, error) {
+func filter(filters []Filter, feature Feature) ([]ResultKey, error) {
 	keys := make([]ResultKey, 0)
 	for _, filter := range filters {
-		match, err := filter.IsMatch(broadcast)
+		match, err := filter.IsMatch(feature)
 		if err != nil {
 			return nil, err
 		}
 		if match {
-			keys = append(keys, filter.GetResultKey(broadcast))
+			keys = append(keys, filter.DistinctKey(feature))
 		}
 	}
 	return keys, nil

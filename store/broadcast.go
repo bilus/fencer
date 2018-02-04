@@ -10,6 +10,10 @@ import (
 	"strings"
 )
 
+type BroadcastId int64
+
+func (BroadcastId) ActsAsResultKey() {}
+
 type BroadcastType string
 
 type Freq int64
@@ -33,7 +37,7 @@ func (eid Eid) Equals(other Eid) bool {
 }
 
 type Broadcast struct {
-	BroadcastId   int64
+	BroadcastId
 	BroadcastType BroadcastType
 	BaselineData  string
 	Freq          *Freq
@@ -46,7 +50,7 @@ type Broadcast struct {
 	combinedCoverage *geos.Geometry
 }
 
-func NewBroadcast(id int64, broadcastType BroadcastType, baselineData string, freq *Freq, eid *Eid, country *Country, piCode *PiCode,
+func NewBroadcast(id BroadcastId, broadcastType BroadcastType, baselineData string, freq *Freq, eid *Eid, country *Country, piCode *PiCode,
 	bounds pq.PostGISBox2D, coverageArea geom.T) (*Broadcast, error) {
 
 	multiPoly := coverageArea.(*geom.MultiPolygon)
@@ -70,7 +74,7 @@ func NewBroadcast(id int64, broadcastType BroadcastType, baselineData string, fr
 		return nil, err
 	}
 	return &Broadcast{
-		id,
+		BroadcastId(id),
 		broadcastType,
 		baselineData,
 		freq,
@@ -107,6 +111,10 @@ func lengths(bounds pq.PostGISBox2D) []float64 {
 		bounds.Max.Lon - bounds.Min.Lon,
 		bounds.Max.Lat - bounds.Min.Lat,
 	}
+}
+
+func (b *Broadcast) Key() ResultKey {
+	return b.BroadcastId
 }
 
 func (b *Broadcast) Contains(point Point) bool {

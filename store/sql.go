@@ -55,7 +55,7 @@ func newBroadcastFromRow(rows *sql.Rows) (*Broadcast, error) {
 		return nil, err
 	}
 	broadcast, err := NewBroadcast(
-		id,
+		BroadcastId(id),
 		BroadcastType(broadcastType.String),
 		baselineData.String,
 		(*Freq)(optionalInt64(freq)),
