@@ -7,7 +7,6 @@ import (
 	"github.com/bilus/rtreego"
 	pq "github.com/mc2soft/pq-types"
 	geom "github.com/twpayne/go-geom"
-	"log"
 	"strings"
 )
 
@@ -110,12 +109,16 @@ func lengths(bounds pq.PostGISBox2D) []float64 {
 	}
 }
 
-func (b *Broadcast) Contains(point *geos.Geometry) bool {
+func (b *Broadcast) Contains(point Point) bool {
+	// TODO: panic?
+	geosPoint, err := geos.NewPoint(geos.NewCoord(point[0], point[1]))
+	if err != nil {
+		panic(err)
+	}
+
 	for _, geometry := range b.coverageArea {
-		inter, err := geometry.Covers(point) // TODO: Prepare before contains
+		inter, err := geometry.Covers(geosPoint) // TODO: Prepare before contains
 		if err != nil {
-			log.Println(geometry)
-			log.Println(point)
 			panic(fmt.Sprintf("Ooops: %v", err))
 		}
 		if inter {

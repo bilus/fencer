@@ -1,5 +1,9 @@
 package store
 
+// import (
+// 	"github.com/bilus/rtreego"
+// )
+
 type ResultKey interface {
 	ActsAsResultKey()
 }
@@ -7,6 +11,19 @@ type ResultKey interface {
 type Condition interface {
 	IsMatch(broadcast *Broadcast) (bool, error)
 }
+
+// Possible optimization:
+// func RTreeGoFilter(cond Condition) rtreego.Filter {
+// 	return func(results []rtreego.Spatial, object rtreego.Spatial) (refuse, abort bool) {
+// 		var err error
+// 		refuse, err = cond.IsMatch(object.(*Broadcast))
+// 		if err != nil {
+// 			panic(err)
+// 		}
+// 		abort = false
+// 		return
+// 	}
+// }
 
 type Aggregation interface {
 	GetResultKey(broadcast *Broadcast) ResultKey

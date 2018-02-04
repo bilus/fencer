@@ -2,7 +2,6 @@ package store
 
 import (
 	"database/sql"
-	"github.com/bilus/gogeos/geos"
 	"github.com/bilus/rtreego"
 	"github.com/paulmach/go.geo"
 	"log"
@@ -31,30 +30,50 @@ func New(broadcasts []*Broadcast) (*BroadcastStore, error) {
 	return &store, nil
 }
 
-func FilterContaining(point *geos.Geometry) rtreego.Filter {
-	return func(results []rtreego.Spatial, object rtreego.Spatial) (refuse, abort bool) {
-		if object.(*Broadcast).Contains(point) {
-			return false, false
-		} else {
-			return true, false
-		}
-	}
+type MatchContaining struct {
+	Point
+}
+
+func (mc MatchContaining) IsMatch(broadcast *Broadcast) (bool, error) {
+	return broadcast.Contains(mc.Point), nil
 }
 
 func (store *BroadcastStore) FindBroadcasts(point Point) ([]*Broadcast, error) {
-	geosPoint, err := geos.NewPoint(geos.NewCoord(point[0], point[1]))
-	if err != nil {
-		return nil, err
-	}
-
 	p, err := rtreego.NewRect(rtreego.Point(point), []float64{0.01, 0.01})
 	if err != nil {
 		return nil, err
 	}
-	spatials := store.SearchIntersect(p, FilterContaining(geosPoint))
-	broadcasts := make([]*Broadcast, len(spatials))
-	for i, spatial := range spatials {
-		broadcasts[i] = spatial.(*Broadcast)
+	candidates := store.SearchIntersect(p)
+	if len(candidates) == 0 {
+		return nil, nil
+	}
+	log.Println("candidates =", len(candidates), point)
+
+	// TODO: Refactor using NewNeighbourQuery. But we first need to put the
+	// code to select the nearest broadcast into a Filter or Aggregator.
+	// Otherwise, it generates unnecessary overhead.
+	// query := NewNeighbourQuery(point, conditions, nil)
+	// conditions := []Condition{MatchContaining{point}}
+	// for _, candidate := range candidates {
+	// 	err := query.Scan(candidate.(*Broadcast))
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+	// return query.GetMatchingBroadcasts(), nil
+
+	condition := MatchContaining{point}
+	broadcasts := make([]*Broadcast, 0, len(candidates))
+	for _, candidate := range candidates {
+		broadcast := candidate.(*Broadcast)
+		match, err := condition.IsMatch(broadcast)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			broadcasts = append(broadcasts, broadcast)
+		}
+
 	}
 	return broadcasts, nil
 }
