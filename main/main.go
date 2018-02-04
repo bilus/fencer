@@ -41,6 +41,16 @@ func (r MinDistanceReducer) Reduce(matches map[store.ResultKey]store.Match, keys
 	return nil
 }
 
+type TakeAllReducer struct{}
+
+func (TakeAllReducer) Reduce(matches map[store.ResultKey]store.Match, keys []store.ResultKey, feature store.Feature) error {
+	newMatch := store.Match{feature, struct{}{}}
+	for _, key := range keys {
+		matches[key] = newMatch
+	}
+	return nil
+}
+
 type BroadcastType store.BroadcastType   // Only so we can use it as ResultKey.
 func (s BroadcastType) ActsAsResultKey() {}
 
