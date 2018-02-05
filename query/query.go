@@ -43,6 +43,15 @@ type Query struct {
 }
 
 func New(preconditions []Condition, filters []Filter, reducer Reducer) Query {
+	if len(preconditions) == 0 {
+		preconditions = []Condition{defaultFilter{}}
+	}
+	if len(filters) == 0 {
+		filters = []Filter{defaultFilter{}}
+	}
+	if reducer == nil {
+		reducer = defaultReducer{}
+	}
 	return Query{preconditions, filters, reducer, make(map[ResultKey]Match)}
 }
 

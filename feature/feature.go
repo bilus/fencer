@@ -1,6 +1,7 @@
 package feature
 
 import (
+	"github.com/bilus/fencer/primitives"
 	"github.com/bilus/rtreego"
 )
 
@@ -10,6 +11,6 @@ type Key interface {
 
 type Feature interface {
 	rtreego.Spatial
-	Contains(point rtreego.Point) (bool, error)
+	Contains(point primitives.Point) (bool, error)
 	Key() Key
 }
