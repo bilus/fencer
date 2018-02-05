@@ -26,8 +26,14 @@ type Filter interface {
 }
 
 type Match struct {
-	Feature feature.Feature
-	Cache   interface{}
+	Features []feature.Feature
+	Cache    interface{}
+}
+
+func NewMatch(features ...feature.Feature) Match {
+	return Match{
+		Features: features,
+	}
 }
 
 // Query is a nearest neighour query returning features matching the filters,
@@ -68,6 +74,7 @@ func (q *Query) Scan(feature feature.Feature) error {
 	if err != nil {
 		return err
 	}
+
 	if len(keys) == 0 {
 		return nil
 	}
@@ -78,11 +85,13 @@ func (q *Query) MatchingFeatures() []feature.Feature {
 	features := make([]feature.Feature, 0)
 	matched := make(map[feature.Key]struct{})
 	for _, match := range q.matches {
-		key := match.Feature.Key()
-		_, isMatched := matched[key]
-		if !isMatched {
-			features = append(features, match.Feature)
-			matched[key] = struct{}{}
+		for _, feature := range match.Features {
+			key := feature.Key()
+			_, isMatched := matched[key]
+			if !isMatched {
+				features = append(features, feature)
+				matched[key] = struct{}{}
+			}
 		}
 	}
 	return features

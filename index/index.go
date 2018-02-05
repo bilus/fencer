@@ -35,7 +35,6 @@ func (index *Index) Find(point primitives.Point, sideMeters float64, preconditio
 	if len(candidates) == 0 {
 		return nil, nil
 	}
-
 	query := query.New(preconditions, filters, reducer)
 	for _, candidate := range candidates {
 		err := query.Scan(candidate.(feature.Feature))
