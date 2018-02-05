@@ -23,7 +23,7 @@ func (defaultResultKey) ActsAsResultKey() {}
 type defaultReducer struct{}
 
 func (defaultReducer) Reduce(matches map[ResultKey]Match, keys []ResultKey, feature feature.Feature) error {
-	newMatch := Match{feature, struct{}{}}
+	newMatch := NewMatch(feature)
 	for _, key := range keys {
 		matches[key] = newMatch
 	}
