@@ -6,7 +6,6 @@ import (
 )
 
 type Key interface {
-	ActsAsFeatureKey()
 	Show() string
 }
 

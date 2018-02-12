@@ -4,9 +4,7 @@ import (
 	"github.com/bilus/fencer/feature"
 )
 
-type ResultKey interface {
-	ActsAsResultKey()
-}
+type ResultKey interface{}
 
 type Condition interface {
 	IsMatch(feature feature.Feature) (bool, error)
