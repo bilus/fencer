@@ -18,8 +18,6 @@ type defaultResultKey struct {
 	feature.Key
 }
 
-func (defaultResultKey) ActsAsResultKey() {}
-
 type defaultReducer struct{}
 
 func (defaultReducer) Reduce(matches map[ResultKey]Match, keys []ResultKey, feature feature.Feature) error {
