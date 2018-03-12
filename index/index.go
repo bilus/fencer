@@ -8,16 +8,28 @@ import (
 	"github.com/paulmach/go.geo"
 )
 
+type featureByID map[feature.Key]feature.Feature
+
 type Index struct {
 	*rtreego.Rtree
+	featureByID
 }
 
 func New(features []feature.Feature) (*Index, error) {
-	index := Index{rtreego.NewTree(2, 5, 20)}
-	for _, feature := range features {
-		index.Insert(feature)
+	index := Index{rtreego.NewTree(2, 5, 20), make(featureByID)}
+	for _, f := range features {
+		if err := index.Insert(f); err != nil {
+			return nil, err
+		}
 	}
 	return &index, nil
+}
+
+// Inserts add a feature to the index.
+func (index *Index) Insert(f feature.Feature) error {
+	index.Rtree.Insert(f)
+	index.featureByID[f.Key()] = f
+	return nil
 }
 
 // Find returns a slice of features intersecting a square around a given `point` covering the `distance` radius.
@@ -43,6 +55,18 @@ func (index *Index) Find(point primitives.Point, distance float64, preconditions
 		}
 	}
 	return query.MatchingFeatures(), nil
+}
+
+// Lookup returns a feature based on its key. It returns a slice containing one result or an empty slice if there's no match.
+func (index *Index) Lookup(key feature.Key) ([]feature.Feature, error) {
+	f := index.featureByID[key]
+	if f != nil {
+		return []feature.Feature{f}, nil
+
+	} else {
+		return nil, nil
+	}
+
 }
 
 func geomBoundsAround(point primitives.Point, distance float64) (*rtreego.Rect, error) {
