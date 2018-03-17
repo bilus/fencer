@@ -2,15 +2,16 @@ package feature
 
 import (
 	"github.com/bilus/fencer/primitives"
-	"github.com/bilus/rtreego"
 )
 
+// Key uniquely identifies a feature.
 type Key interface {
-	Show() string
+	String() string
 }
 
+// Feature represents a spatial object.
 type Feature interface {
-	rtreego.Spatial
+	Bounds() *primitives.Rect
 	Contains(point primitives.Point) (bool, error)
 	Key() Key
 }

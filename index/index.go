@@ -8,6 +8,14 @@ import (
 	"github.com/paulmach/go.geo"
 )
 
+type RTGFeatureAdapter struct {
+	feature.Feature
+}
+
+func (a RTGFeatureAdapter) Bounds() *rtreego.Rect {
+	return (*rtreego.Rect)(a.Feature.Bounds())
+}
+
 type featureByID map[feature.Key]feature.Feature
 
 type Index struct {
@@ -27,7 +35,7 @@ func New(features []feature.Feature) (*Index, error) {
 
 // Inserts add a feature to the index.
 func (index *Index) Insert(f feature.Feature) error {
-	index.Rtree.Insert(f)
+	index.Rtree.Insert(RTGFeatureAdapter{f})
 	index.featureByID[f.Key()] = f
 	return nil
 }
