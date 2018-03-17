@@ -1,9 +1,11 @@
+// Package primitives contains basic spatial types.
 package primitives
 
 import (
 	"github.com/bilus/rtreego"
 )
 
+// Rect represents a bounding rectangle.
 type Rect rtreego.Rect
 
 func NewRect(p Point, lengths ...float64) (*Rect, error) {
@@ -14,8 +16,10 @@ func NewRect(p Point, lengths ...float64) (*Rect, error) {
 	return (*Rect)(r), nil
 }
 
+// Point represents a point.
 type Point rtreego.Point
 
+// MinDist returns a minimum distance from the point to a rectangle.
 func (p Point) MinDist(r *Rect) float64 {
 	return rtreego.Point(p).MinDist((*rtreego.Rect)(r))
 }
