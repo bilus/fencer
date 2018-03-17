@@ -5,14 +5,14 @@ import (
 	"github.com/bilus/fencer/primitives"
 	"github.com/bilus/fencer/query"
 	"github.com/bilus/rtreego"
-	"github.com/paulmach/go.geo"
+	"math"
 )
 
-type RTGFeatureAdapter struct {
+type rtreegoFeatureAdapter struct {
 	feature.Feature
 }
 
-func (a RTGFeatureAdapter) Bounds() *rtreego.Rect {
+func (a rtreegoFeatureAdapter) Bounds() *rtreego.Rect {
 	return (*rtreego.Rect)(a.Feature.Bounds())
 }
 
@@ -23,6 +23,7 @@ type Index struct {
 	featureByID
 }
 
+// Creates a new index containing features.
 func New(features []feature.Feature) (*Index, error) {
 	index := Index{rtreego.NewTree(2, 5, 20), make(featureByID)}
 	for _, f := range features {
@@ -33,31 +34,39 @@ func New(features []feature.Feature) (*Index, error) {
 	return &index, nil
 }
 
-// Inserts add a feature to the index.
+// Inserts adds a feature to the index.
 func (index *Index) Insert(f feature.Feature) error {
-	index.Rtree.Insert(RTGFeatureAdapter{f})
+	index.Rtree.Insert(rtreegoFeatureAdapter{f})
 	index.featureByID[f.Key()] = f
 	return nil
 }
 
-// Find returns a slice of features intersecting a square around a given `point` covering the `distance` radius.
-// - point, distance - the range of a spatial query
-// - preconditions - a conjunction of predicates, set to nil to pass all features matching the spatial query
-// - filters - a disjunction of predicates filtering the result from predicates + definition of distinctness, set to nil to pass all features
-// - reducer - defines how to combine results together (a reduce function), set to nil to simply store it under one or more keys returned by the filters
-func (index *Index) Find(point primitives.Point, distance float64, preconditions []query.Condition, filters []query.Filter, reducer query.Reducer) ([]feature.Feature, error) {
-	bounds, err := geomBoundsAround(point, distance)
+// FindContaining returns features containing the given point.
+func (index *Index) FindContaining(point primitives.Point) ([]feature.Feature, error) {
+	size := math.SmallestNonzeroFloat64
+	bounds, err := primitives.NewRect(point, size, size)
 	if err != nil {
 		return nil, err
 	}
+	return index.Query(
+		bounds,
+		query.New([]query.Condition{query.Contains{point}}, nil, nil),
+	)
+}
 
-	candidates := index.SearchIntersect(bounds)
+// Intersect returns features whose bounding boxes intersect the given bounding box.
+func (index *Index) Intersect(bounds *primitives.Rect) ([]feature.Feature, error) {
+	return index.Query(bounds, query.New(nil, nil, nil))
+}
+
+// Query returns features with bounding boxes intersecting the specified bounding box and matching the provided query.
+func (index *Index) Query(bounds *primitives.Rect, query query.Query) ([]feature.Feature, error) {
+	candidates := index.SearchIntersect((*rtreego.Rect)(bounds))
 	if len(candidates) == 0 {
 		return nil, nil
 	}
-	query := query.New(preconditions, filters, reducer)
 	for _, candidate := range candidates {
-		err := query.Scan(candidate.(feature.Feature))
+		err := query.Scan(candidate.(rtreegoFeatureAdapter).Feature)
 		if err != nil {
 			return nil, err
 		}
@@ -75,10 +84,4 @@ func (index *Index) Lookup(key feature.Key) ([]feature.Feature, error) {
 		return nil, nil
 	}
 
-}
-
-func geomBoundsAround(point primitives.Point, distance float64) (*rtreego.Rect, error) {
-	bound := geo.NewGeoBoundAroundPoint(geo.NewPoint(point[0], point[1]), distance)
-	tl := bound.SouthWest()
-	return rtreego.NewRect(rtreego.Point{tl[0], tl[1]}, []float64{bound.Width(), bound.Height()})
 }
