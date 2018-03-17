@@ -133,21 +133,6 @@ func ExampleIndex_Query_preconditions() {
 	// Output: 1 result
 }
 
-// This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/index/index.go for more details.
-func ExampleIndex_Query_preconditions() {
-	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
-	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
-	index, _ := index.New([]feature.Feature{&wroclaw, &szczecin})
-	location := primitives.Point{14.499678611755371, 53.41209631751399}
-	// A 1000kmx1000km bounding rectangle around the location so we match both cities.
-	radius := 500000.0
-	bounds, _ := geo.NewBoundsAround(location, radius)
-	results, _ := index.Query(bounds, query.Build().Preconditions(PopulationGreaterThan{500000}).Query())
-	fmt.Println(len(results), "result")
-	// Output: 1 result
-}
-
 // Rough outlines of two example cities.
 var (
 	wroclawBoundaries = []pip.Point{
