@@ -1,3 +1,5 @@
+// Package feature contains interface a type must implement in order to participate
+// in spatial queries.
 package feature
 
 import (
