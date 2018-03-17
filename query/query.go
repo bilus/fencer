@@ -46,6 +46,7 @@ type Query struct {
 	matches map[ResultKey]Match
 }
 
+// New creates a new query. See also Builder() function.
 func New(preconditions []Condition, filters []Filter, reducer Reducer) Query {
 	if len(preconditions) == 0 {
 		preconditions = []Condition{defaultFilter{}}
@@ -59,6 +60,9 @@ func New(preconditions []Condition, filters []Filter, reducer Reducer) Query {
 	return Query{preconditions, filters, reducer, make(map[ResultKey]Match)}
 }
 
+// Scan sends a feature through the query pipeline, first rejecting it unless
+// all preconditions (conjunction step) match, then applying each of the filters
+// and finally performing a reduce step to update query results.
 func (q *Query) Scan(feature feature.Feature) error {
 	match, err := allMatch(q.Preconditions, feature)
 	if err != nil {
@@ -79,6 +83,7 @@ func (q *Query) Scan(feature feature.Feature) error {
 	return q.Reducer.Reduce(q.matches, keys, feature)
 }
 
+// MatchingFeatures returns distinct features matching the query.
 func (q *Query) MatchingFeatures() []feature.Feature {
 	features := make([]feature.Feature, 0)
 	matched := make(map[feature.Key]struct{})
