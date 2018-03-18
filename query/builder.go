@@ -6,10 +6,20 @@ type builder struct {
 
 // Build returns a new query builder.
 func Build() *builder {
-	return &builder{New(nil, nil, nil)}
+	return &builder{}
 }
 
 func (builder *builder) Query() Query {
+	if len(builder.query.Preconditions) == 0 {
+		builder.query.Preconditions = []Condition{defaultFilter{}}
+	}
+	if len(builder.query.Filters) == 0 {
+		builder.query.Filters = []Filter{defaultFilter{}}
+	}
+	if builder.query.Reducer == nil {
+		builder.query.Reducer = defaultReducer{}
+	}
+	builder.query.matches = make(map[ResultKey]*Match)
 	return builder.query
 }
 
