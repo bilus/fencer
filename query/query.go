@@ -83,8 +83,8 @@ func (q *Query) Scan(feature feature.Feature) error {
 	return q.Reducer.Reduce(q.matches, keys, feature)
 }
 
-// MatchingFeatures returns distinct features matching the query.
-func (q *Query) MatchingFeatures() []feature.Feature {
+// Distinct returns distinct features matching the query.
+func (q *Query) Distinct() []feature.Feature {
 	features := make([]feature.Feature, 0)
 	matched := make(map[feature.Key]struct{})
 	for _, match := range q.matches {

@@ -73,7 +73,7 @@ func makeRect(boundingRect pip.BoundingBox) (*primitives.Rect, error) {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/index/index.go for more details.
+// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
 func ExampleIndex_Lookup() {
 	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
 	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
@@ -84,7 +84,7 @@ func ExampleIndex_Lookup() {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/index/index.go for more details.
+// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
 func ExampleIndex_FindContaining() {
 	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
 	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
@@ -96,7 +96,7 @@ func ExampleIndex_FindContaining() {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/index/index.go for more details.
+// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
 func ExampleIndex_Intersect() {
 	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
 	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
@@ -119,7 +119,7 @@ func (c PopulationGreaterThan) IsMatch(feature feature.Feature) (bool, error) {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/index/index.go for more details.
+// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
 func ExampleIndex_Query_preconditions() {
 	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
 	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
@@ -128,7 +128,7 @@ func ExampleIndex_Query_preconditions() {
 	// A 1000kmx1000km bounding rectangle around the location so we match both cities.
 	radius := 500000.0
 	bounds, _ := geo.NewBoundsAround(location, radius)
-	results, _ := index.Query(bounds, query.Build().Preconditions(PopulationGreaterThan{500000}).Query())
+	results, _ := index.Query(bounds, query.Build().Precondition(PopulationGreaterThan{500000}).Query())
 	fmt.Println(len(results), "result")
 	// Output: 1 result
 }
