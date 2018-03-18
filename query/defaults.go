@@ -20,10 +20,7 @@ type defaultResultKey struct {
 
 type defaultReducer struct{}
 
-func (defaultReducer) Reduce(matches map[ResultKey]Match, keys []ResultKey, feature feature.Feature) error {
-	newMatch := NewMatch(feature)
-	for _, key := range keys {
-		matches[key] = newMatch
-	}
+func (defaultReducer) Reduce(matches map[ResultKey]*Match, match *Match) error {
+	matches[match.ResultKey] = match
 	return nil
 }

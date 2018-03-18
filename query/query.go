@@ -15,7 +15,7 @@ type Distinctor interface {
 }
 
 type Reducer interface {
-	Reduce(matches map[ResultKey]Match, keys []ResultKey, feature feature.Feature) error
+	Reduce(matches map[ResultKey]*Match, match *Match) error
 }
 
 type Filter interface {
@@ -24,14 +24,25 @@ type Filter interface {
 }
 
 type Match struct {
+	ResultKey
 	Features []feature.Feature
 	Cache    interface{}
 }
 
-func NewMatch(features ...feature.Feature) Match {
-	return Match{
-		Features: features,
+func NewMatch(resultKey ResultKey, features ...feature.Feature) *Match {
+	return &Match{
+		ResultKey: resultKey,
+		Features:  features,
 	}
+}
+
+func (match *Match) Merge(feature feature.Feature) error {
+	match.Features = append(match.Features, feature)
+	return nil
+}
+
+type Mapper interface {
+	Map(feature feature.Feature) ([]*Match, error)
 }
 
 // Query is a nearest neighour query returning features matching the filters,
@@ -40,24 +51,11 @@ func NewMatch(features ...feature.Feature) Match {
 // Precedence:
 // Precondition0 AND Precondition1 AND ... PreconditionN AND (Filter0 OR Filter1 OR ... FilterN)
 type Query struct {
+	// Mapper
 	Preconditions []Condition // Logical conjunction.
 	Filters       []Filter    // Logical disjunction.
 	Reducer
-	matches map[ResultKey]Match
-}
-
-// New creates a new query. See also Builder() function.
-func New(preconditions []Condition, filters []Filter, reducer Reducer) Query {
-	if len(preconditions) == 0 {
-		preconditions = []Condition{defaultFilter{}}
-	}
-	if len(filters) == 0 {
-		filters = []Filter{defaultFilter{}}
-	}
-	if reducer == nil {
-		reducer = defaultReducer{}
-	}
-	return Query{preconditions, filters, reducer, make(map[ResultKey]Match)}
+	matches map[ResultKey]*Match
 }
 
 // Scan sends a feature through the query pipeline, first rejecting it unless
@@ -71,16 +69,19 @@ func (q *Query) Scan(feature feature.Feature) error {
 	if !match {
 		return nil
 	}
-
-	keys, err := filter(q.Filters, feature)
+	matches, err := filter(q.Filters, feature)
 	if err != nil {
 		return err
 	}
-
-	if len(keys) == 0 {
+	if len(matches) == 0 {
 		return nil
 	}
-	return q.Reducer.Reduce(q.matches, keys, feature)
+	for _, match := range matches {
+		if err := q.Reducer.Reduce(q.matches, match); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Distinct returns distinct features matching the query.
@@ -113,16 +114,41 @@ func allMatch(conditions []Condition, feature feature.Feature) (bool, error) {
 	return true, nil
 }
 
-func filter(filters []Filter, feature feature.Feature) ([]ResultKey, error) {
-	keys := make([]ResultKey, 0)
+// type FilterMapper struct {
+// 	Filter
+// }
+
+// func (m FilterMapper) Map(feature feature.Feature) ([]Match, error) {
+
+// }
+
+func filter(filters []Filter, feature feature.Feature) ([]*Match, error) {
+	matchMap := make(map[ResultKey]*Match)
 	for _, filter := range filters {
-		match, err := filter.IsMatch(feature)
+		isMatch, err := filter.IsMatch(feature)
 		if err != nil {
 			return nil, err
 		}
-		if match {
-			keys = append(keys, filter.DistinctKey(feature))
+		if isMatch {
+			key := filter.DistinctKey(feature)
+			match := matchMap[key]
+			if match == nil {
+				matchMap[key] = NewMatch(key, feature)
+			} else {
+				match.Merge(feature)
+			}
 		}
 	}
-	return keys, nil
+	matches := make([]*Match, 0, len(matchMap))
+	for key, match := range matchMap {
+		// We are not setting the key ^ for performance reasons.
+		match.ResultKey = key
+		matches = append(matches, match)
+	}
+	return matches, nil
 }
+
+// +Change reducer interface so it works with Matches containing keys.
+// Wrap Filter in FilterMapper so it emits matches.
+// Wrap preconditions in PreconditionMapper so it emits matches.
+// Think.
