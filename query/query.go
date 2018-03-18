@@ -23,6 +23,11 @@ type Filter interface {
 	Distinctor
 }
 
+type Aggregator interface {
+	Map(feature feature.Feature) ([]*Match, error)
+	Reduce(matches map[ResultKey]*Match, match *Match) error
+}
+
 type Match struct {
 	ResultKey
 	Features []feature.Feature
@@ -55,32 +60,45 @@ type Query struct {
 	Preconditions []Condition // Logical conjunction.
 	Filters       []Filter    // Logical disjunction.
 	Reducer
-	matches map[ResultKey]*Match
+	Aggregators []Aggregator
+	matches     map[ResultKey]*Match
 }
 
 // Scan sends a feature through the query pipeline, first rejecting it unless
 // all preconditions (conjunction step) match, then applying each of the filters
 // and finally performing a reduce step to update query results.
 func (q *Query) Scan(feature feature.Feature) error {
-	match, err := allMatch(q.Preconditions, feature)
+	isMatch, err := allMatch(q.Preconditions, feature)
 	if err != nil {
 		return err
 	}
-	if !match {
+	if !isMatch {
 		return nil
 	}
-	matches, err := filter(q.Filters, feature)
-	if err != nil {
-		return err
-	}
-	if len(matches) == 0 {
-		return nil
-	}
-	for _, match := range matches {
-		if err := q.Reducer.Reduce(q.matches, match); err != nil {
+	for _, aggregator := range q.Aggregators {
+		matches, err := aggregator.Map(feature)
+		if err != nil {
 			return err
 		}
+		for _, match := range matches {
+			if err := aggregator.Reduce(q.matches, match); err != nil {
+				return err
+			}
+		}
 	}
+
+	// matches, err := filter(q.Filters, feature)
+	// if err != nil {
+	// 	return err
+	// }
+	// if len(matches) == 0 {
+	// 	return nil
+	// }
+	// for _, match := range matches {
+	// 	if err := q.Reducer.Reduce(q.matches, match); err != nil {
+	// 		return err
+	// 	}
+	// }
 	return nil
 }
 

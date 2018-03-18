@@ -112,12 +112,10 @@ func ExampleBuild_conjunction() {
 
 type MostPopulatedByRegion struct{}
 
-func (MostPopulatedByRegion) IsMatch(feature feature.Feature) (bool, error) {
-	return true, nil
-}
-
-func (MostPopulatedByRegion) DistinctKey(feature feature.Feature) query.ResultKey {
-	return query.ResultKey(feature.(*Country).Region)
+func (MostPopulatedByRegion) Map(feature feature.Feature) ([]*query.Match, error) {
+	return []*query.Match{
+		query.NewMatch(query.ResultKey(feature.(*Country).Region), feature),
+	}, nil
 }
 
 func (MostPopulatedByRegion) Reduce(matches map[query.ResultKey]*query.Match, match *query.Match) error {
@@ -161,7 +159,7 @@ func mostPopulatedCountry(match *query.Match) (*Country, error) {
 // This example uses an example spatial feature implementation.
 // See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_groupingResults() {
-	query := query.Build().Filter(MostPopulatedByRegion{}).Reducer(MostPopulatedByRegion{}).Query() // Map(MostPopulatedByRegion{}).Query()
+	query := query.Build().Aggregate(MostPopulatedByRegion{}).Query() // Map(MostPopulatedByRegion{}).Query()
 	for _, country := range countries {
 		query.Scan(country)
 	}

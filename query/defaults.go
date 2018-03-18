@@ -24,3 +24,11 @@ func (defaultReducer) Reduce(matches map[ResultKey]*Match, match *Match) error {
 	matches[match.ResultKey] = match
 	return nil
 }
+
+type defaultAggregator struct {
+	defaultReducer
+}
+
+func (defaultAggregator) Map(feature feature.Feature) ([]*Match, error) {
+	return []*Match{NewMatch(feature.Key(), feature)}, nil
+}
