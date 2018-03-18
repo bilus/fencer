@@ -13,15 +13,15 @@ func (builder *builder) Query() Query {
 	return builder.query
 }
 
-// Preconditions sets query pre-conditions.
-func (builder *builder) Preconditions(conditions ...Condition) *builder {
-	builder.query.Preconditions = conditions
+// Precondition adds a precondition to the query.
+func (builder *builder) Precondition(condition Condition) *builder {
+	builder.query.Preconditions = append(builder.query.Preconditions, condition)
 	return builder
 }
 
-// Filters sets query filters.
-func (builder *builder) Filters(filters ...Filter) *builder {
-	builder.query.Filters = filters
+// Filter adds a query filter.
+func (builder *builder) Filter(filter Filter) *builder {
+	builder.query.Filters = append(builder.query.Filters, filter)
 	return builder
 }
 
