@@ -11,13 +11,16 @@ func Build() *builder {
 
 func (builder *builder) Query() Query {
 	if len(builder.query.Preconditions) == 0 {
-		builder.query.Preconditions = []Condition{defaultFilter{}}
+		builder.Precondition(defaultFilter{})
 	}
 	if len(builder.query.Filters) == 0 {
-		builder.query.Filters = []Filter{defaultFilter{}}
+		builder.Filter(defaultFilter{})
 	}
 	if builder.query.Reducer == nil {
-		builder.query.Reducer = defaultReducer{}
+		builder.Reducer(defaultReducer{})
+	}
+	if len(builder.query.Aggregators) == 0 {
+		builder.Aggregate(defaultAggregator{})
 	}
 	builder.query.matches = make(map[ResultKey]*Match)
 	return builder.query
@@ -38,5 +41,10 @@ func (builder *builder) Filter(filter Filter) *builder {
 // Reducer sets query reducer.
 func (builder *builder) Reducer(reducer Reducer) *builder {
 	builder.query.Reducer = reducer
+	return builder
+}
+
+func (builder *builder) Aggregate(aggregator Aggregator) *builder {
+	builder.query.Aggregators = append(builder.query.Aggregators, aggregator)
 	return builder
 }
