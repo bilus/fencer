@@ -50,13 +50,13 @@ func (index *Index) FindContaining(point primitives.Point) ([]feature.Feature, e
 	}
 	return index.Query(
 		bounds,
-		query.New([]query.Condition{query.Contains{point}}, nil, nil),
+		query.Build().Precondition(query.Contains{point}).Query(),
 	)
 }
 
 // Intersect returns features whose bounding boxes intersect the given bounding box.
 func (index *Index) Intersect(bounds *primitives.Rect) ([]feature.Feature, error) {
-	return index.Query(bounds, query.New(nil, nil, nil))
+	return index.Query(bounds, query.Build().Query())
 }
 
 // Query returns features with bounding boxes intersecting the specified bounding box and matching the provided query.
