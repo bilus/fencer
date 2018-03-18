@@ -71,7 +71,7 @@ func (index *Index) Query(bounds *primitives.Rect, query query.Query) ([]feature
 			return nil, err
 		}
 	}
-	return query.MatchingFeatures(), nil
+	return query.Distinct(), nil
 }
 
 // Lookup returns a feature based on its key. It returns a slice containing one result or an empty slice if there's no match.

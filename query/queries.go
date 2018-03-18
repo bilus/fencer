@@ -12,3 +12,9 @@ type Contains struct {
 func (c Contains) IsMatch(feature feature.Feature) (bool, error) {
 	return feature.Contains(c.Point)
 }
+
+type Pred func(feature feature.Feature) (bool, error)
+
+func (p Pred) IsMatch(feature feature.Feature) (bool, error) {
+	return p(feature)
+}
