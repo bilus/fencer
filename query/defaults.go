@@ -4,12 +4,14 @@ import (
 	"github.com/bilus/fencer/feature"
 )
 
+// defaultFilter accepts all features.
 type defaultFilter struct{}
 
 func (defaultFilter) IsMatch(feature feature.Feature) (bool, error) {
 	return true, nil
 }
 
+// defaultAggregator keeps one result per feature key.
 type defaultAggregator struct{}
 
 func (defaultAggregator) Map(match *Match) (*Match, error) {
