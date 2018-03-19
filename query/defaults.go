@@ -20,8 +20,8 @@ type defaultResultKey struct {
 
 type defaultReducer struct{}
 
-func (defaultReducer) Reduce(matches map[ResultKey]*Result, match *Match) error {
-	matches[match.ResultKey] = NewResult(match)
+func (defaultReducer) Reduce(result *Result, match *Match) error {
+	result.Replace(match)
 	return nil
 }
 
@@ -30,5 +30,5 @@ type defaultAggregator struct {
 }
 
 func (defaultAggregator) Map(feature feature.Feature) ([]*Match, error) {
-	return []*Match{NewMatch(feature.Key(), feature)}, nil
+	return NewMatch(feature.Key(), feature).ToSlice(), nil
 }

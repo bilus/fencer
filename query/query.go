@@ -11,14 +11,19 @@ type Result struct {
 	Meta    interface{}
 }
 
-func NewResult(match *Match) *Result {
+func NewResult(matches ...*Match) *Result {
 	return &Result{
-		Matches: []*Match{match},
+		Matches: matches,
 	}
 }
 
 func (result *Result) Merge(match *Match) error {
 	result.Matches = append(result.Matches, match)
+	return nil
+}
+
+func (result *Result) Replace(match *Match) error {
+	result.Matches = match.ToSlice()
 	return nil
 }
 
@@ -31,7 +36,7 @@ type Distinctor interface {
 }
 
 type Reducer interface {
-	Reduce(results map[ResultKey]*Result, match *Match) error
+	Reduce(result *Result, match *Match) error
 }
 
 type Filter interface {
@@ -41,7 +46,7 @@ type Filter interface {
 
 type Aggregator interface {
 	Map(feature feature.Feature) ([]*Match, error)
-	Reduce(results map[ResultKey]*Result, match *Match) error
+	Reducer
 }
 
 type Match struct {
@@ -55,6 +60,10 @@ func NewMatch(resultKey ResultKey, feature feature.Feature) *Match {
 		ResultKey: resultKey,
 		Feature:   feature,
 	}
+}
+
+func (match *Match) ToSlice() []*Match {
+	return []*Match{match}
 }
 
 // Query is a nearest neighour query returning features matching the filters,
@@ -89,7 +98,12 @@ func (q *Query) Scan(feature feature.Feature) error {
 			return err
 		}
 		for _, match := range matches {
-			if err := aggregator.Reduce(q.results, match); err != nil {
+			result := q.results[match.ResultKey]
+			if result == nil {
+				result = NewResult()
+				q.results[match.ResultKey] = result
+			}
+			if err := aggregator.Reduce(result, match); err != nil {
 				return err
 			}
 		}
