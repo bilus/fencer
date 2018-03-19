@@ -5,6 +5,7 @@ import (
 	"github.com/bilus/fencer/feature"
 	"github.com/bilus/fencer/primitives"
 	"github.com/bilus/fencer/query"
+	"sort"
 	"strconv"
 	"strings"
 	// "testing"
@@ -20,6 +21,7 @@ type Country struct {
 	ID           CountryID
 	Name         string
 	Population   int
+	Change       float64
 	Region       string
 	BoundingRect *primitives.Rect
 }
@@ -37,11 +39,13 @@ func (c *Country) Bounds() *primitives.Rect {
 }
 
 var countries = []*Country{
-	{1, "Vatican City", 800, "Europe", makeRect(bounds[0])},
-	{2, "Tokelau", 1300, "Polynesia", makeRect(bounds[0])},
-	{3, "Niue", 1600, "Polynesia", makeRect(bounds[0])},
-	{4, "Tuvalu", 11200, "Oceania", makeRect(bounds[0])},
-	{5, "Nauru", 11300, "Oceania", makeRect(bounds[0])},
+	{1, "Vatican City", 800, -0.011, "Europe", makeRect(bounds[0])},
+	{2, "Tokelau", 1300, 0.014, "Polynesia", makeRect(bounds[1])},
+	{3, "Niue", 1600, -0.004, "Polynesia", makeRect(bounds[2])},
+	{4, "Tuvalu", 11200, 0.009, "Oceania", makeRect(bounds[3])},
+	{5, "Nauru", 11300, 0.001, "Oceania", makeRect(bounds[4])},
+	{6, "Poland", 38224, -0.001, "Europe", makeRect(bounds[5])},
+	{7, "Ukraine", 44400, 0, "Europe", makeRect(bounds[6])},
 }
 
 // This example uses an example spatial feature implementation.
@@ -56,7 +60,7 @@ func ExampleBuild_preconditionsUsingPredicates() {
 		query.Scan(country)
 	}
 	fmt.Println("Countries with population > 10000:", len(query.Distinct()))
-	// Output: Countries with population > 10000: 2
+	// Output: Countries with population > 10000: 4
 }
 
 type PopulationGreaterThan struct {
@@ -85,7 +89,13 @@ func ExampleBuild_preconditionsUsingStructs() {
 		query.Scan(country)
 	}
 	fmt.Println("Countries with population > 10000:", len(query.Distinct()))
-	// Output: Countries with population > 10000: 2
+	printNamesSorted(query.Distinct())
+	// Output:
+	// Countries with population > 10000: 4
+	// Nauru
+	// Poland
+	// Tuvalu
+	// Ukraine
 }
 
 // This example uses an example spatial feature implementation.
@@ -107,17 +117,22 @@ func ExampleBuild_conjunction() {
 		query.Scan(country)
 	}
 	fmt.Println("Countries with population > 10000 with name beginning with T:", len(query.Distinct()))
-	// Output: Countries with population > 10000 with name beginning with T: 1
+	printNamesSorted(query.Distinct())
+	// Output:
+	// Countries with population > 10000 with name beginning with T: 1
+	// Tuvalu
 }
 
-type MostPopulatedByRegion struct{}
+type GroupByRegion struct{}
 
-func (MostPopulatedByRegion) Map(match *query.Match) (*query.Match, error) {
+func (GroupByRegion) Map(match *query.Match) (*query.Match, error) {
 	match.Replace(match.Feature.(*Country).Region)
 	return match, nil
 }
 
-func (MostPopulatedByRegion) Reduce(result *query.Result, match *query.Match) error {
+type MostPopulated struct{}
+
+func (MostPopulated) Reduce(result *query.Result, match *query.Match) error {
 	for _, key := range match.ResultKeys {
 		err := result.Update(key, func(entry *query.ResultEntry) error {
 			if len(entry.Features) == 0 {
@@ -144,12 +159,53 @@ func (MostPopulatedByRegion) Reduce(result *query.Result, match *query.Match) er
 // This example uses an example spatial feature implementation.
 // See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_groupingResults() {
-	query := query.Build().Aggregate(MostPopulatedByRegion{}).Query() // Map(MostPopulatedByRegion{}).Query()
+	qb := query.Build()
+	stream := qb.StreamTo(MostPopulated{})
+	stream.Map(GroupByRegion{})
+	query := qb.Query() // Map(MostPopulatedByRegion{}).Query()
 	for _, country := range countries {
 		query.Scan(country)
 	}
 	fmt.Println("Most populated countries per region:", len(query.Distinct()))
-	// Output: Most populated countries per region: 3
+	printNamesSorted(query.Distinct())
+	// Output:
+	// Most populated countries per region: 3
+	// Nauru
+	// Niue
+	// Ukraine
+}
+
+type DecliningPopulation struct{}
+
+func (DecliningPopulation) Map(match *query.Match) (*query.Match, error) {
+	country := match.Feature.(*Country)
+	if country.Change < 0 {
+		match.AddKey("declining")
+	}
+	return match, nil
+}
+
+// This example uses an example spatial feature implementation.
+// See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
+func ExampleBuild_complexAggregation() {
+	qb := query.Build()
+	stream := qb.StreamTo(MostPopulated{})
+	stream.Map(GroupByRegion{})
+	stream.Map(DecliningPopulation{})
+	query := qb.Query() // Map(MostPopulatedByRegion{}).Query()
+	for _, country := range countries {
+		query.Scan(country)
+	}
+	// Output will include Poland which isn't the largest country in its region
+	// but it's the largest one with declining population.
+	fmt.Println("Most populated countries per region and most populated country with declining population:", len(query.Distinct()))
+	printNamesSorted(query.Distinct())
+	// Output:
+	// Most populated countries per region and most populated country with declining population: 4
+	// Nauru
+	// Niue
+	// Poland
+	// Ukraine
 }
 
 // Really, really rough boundaries generated by  following steps in: https://github.com/JamesChevalier/cities, importing into geojson.io and drawing bounding boxes around the polygons.
@@ -190,6 +246,20 @@ var bounds = [][]primitives.Point{
 		{167.07595825195312, -0.4051174740026618},
 		{166.79443359375, -0.4051174740026618},
 	},
+	// Poland
+	{
+		{14.04052734375, 48.922499263758255},
+		{24.27978515625, 48.922499263758255},
+		{24.27978515625, 54.99022172004893},
+		{14.04052734375, 54.99022172004893},
+	},
+	// Ukraine
+	{
+		{21.665039062499996, 44.02442151965934},
+		{40.341796875, 44.02442151965934},
+		{40.341796875, 52.482780222078226},
+		{21.665039062499996, 52.482780222078226},
+	},
 }
 
 func makeRect(points []primitives.Point) *primitives.Rect {
@@ -200,4 +270,15 @@ func makeRect(points []primitives.Point) *primitives.Rect {
 		panic(err)
 	}
 	return rect
+}
+
+func printNamesSorted(features []feature.Feature) {
+	names := make([]string, 0)
+	for _, f := range features {
+		names = append(names, f.(*Country).Name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		fmt.Println(name)
+	}
 }
