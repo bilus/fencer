@@ -20,8 +20,8 @@ type defaultResultKey struct {
 
 type defaultReducer struct{}
 
-func (defaultReducer) Reduce(matches map[ResultKey]*Match, match *Match) error {
-	matches[match.ResultKey] = match
+func (defaultReducer) Reduce(matches map[ResultKey]*Result, match *Match) error {
+	matches[match.ResultKey] = NewResult(match)
 	return nil
 }
 

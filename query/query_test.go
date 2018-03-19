@@ -118,37 +118,20 @@ func (MostPopulatedByRegion) Map(feature feature.Feature) ([]*query.Match, error
 	}, nil
 }
 
-func (MostPopulatedByRegion) Reduce(matches map[query.ResultKey]*query.Match, match *query.Match) error {
-	country, err := mostPopulatedCountry(match)
-	if err != nil {
-		return err
-	}
-
-	existingMatch := matches[match.ResultKey]
-	if existingMatch == nil {
-		matches[match.ResultKey] = query.NewMatch(match.ResultKey, country)
+func (MostPopulatedByRegion) Reduce(results map[query.ResultKey]*query.Result, match *query.Match) error {
+	existingResult := results[match.ResultKey]
+	if existingResult == nil {
+		results[match.ResultKey] = query.NewResult(match)
 		return nil
 	}
 
-	existingCountry := existingMatch.Features[0].(*Country)
-	if existingCountry.Population < country.Population {
-		matches[match.ResultKey] = query.NewMatch(match.ResultKey, country)
+	// You'd probably use something more robust in production code. :>
+	existingCountry := existingResult.Matches[0].Feature.(*Country)
+	currentCountry := match.Feature.(*Country)
+	if existingCountry.Population < currentCountry.Population {
+		results[match.ResultKey] = query.NewResult(match)
 	}
-	return err
-}
-
-func mostPopulatedCountry(match *query.Match) (*Country, error) {
-	if len(match.Features) == 0 {
-		return nil, fmt.Errorf("No features for match %q", match.ResultKey)
-	}
-	pick := match.Features[0].(*Country)
-	for i := 0; i < len(match.Features); i++ {
-		crnt := match.Features[i].(*Country)
-		if pick.Population < crnt.Population {
-			pick = crnt
-		}
-	}
-	return pick, nil
+	return nil
 }
 
 // func (MostPopulatedByRegion) Map(feature feature.Feature) ([]query.Match, error) {

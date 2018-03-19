@@ -6,6 +6,22 @@ import (
 
 type ResultKey interface{}
 
+type Result struct {
+	Matches []*Match
+	Meta    interface{}
+}
+
+func NewResult(match *Match) *Result {
+	return &Result{
+		Matches: []*Match{match},
+	}
+}
+
+func (result *Result) Merge(match *Match) error {
+	result.Matches = append(result.Matches, match)
+	return nil
+}
+
 type Condition interface {
 	IsMatch(feature feature.Feature) (bool, error)
 }
@@ -15,7 +31,7 @@ type Distinctor interface {
 }
 
 type Reducer interface {
-	Reduce(matches map[ResultKey]*Match, match *Match) error
+	Reduce(results map[ResultKey]*Result, match *Match) error
 }
 
 type Filter interface {
@@ -25,29 +41,20 @@ type Filter interface {
 
 type Aggregator interface {
 	Map(feature feature.Feature) ([]*Match, error)
-	Reduce(matches map[ResultKey]*Match, match *Match) error
+	Reduce(results map[ResultKey]*Result, match *Match) error
 }
 
 type Match struct {
 	ResultKey
-	Features []feature.Feature
-	Cache    interface{}
+	Feature feature.Feature
+	Meta    interface{}
 }
 
-func NewMatch(resultKey ResultKey, features ...feature.Feature) *Match {
+func NewMatch(resultKey ResultKey, feature feature.Feature) *Match {
 	return &Match{
 		ResultKey: resultKey,
-		Features:  features,
+		Feature:   feature,
 	}
-}
-
-func (match *Match) Merge(feature feature.Feature) error {
-	match.Features = append(match.Features, feature)
-	return nil
-}
-
-type Mapper interface {
-	Map(feature feature.Feature) ([]*Match, error)
 }
 
 // Query is a nearest neighour query returning features matching the filters,
@@ -61,7 +68,7 @@ type Query struct {
 	Filters       []Filter    // Logical disjunction.
 	Reducer
 	Aggregators []Aggregator
-	matches     map[ResultKey]*Match
+	results     map[ResultKey]*Result
 }
 
 // Scan sends a feature through the query pipeline, first rejecting it unless
@@ -77,28 +84,17 @@ func (q *Query) Scan(feature feature.Feature) error {
 	}
 	for _, aggregator := range q.Aggregators {
 		matches, err := aggregator.Map(feature)
+
 		if err != nil {
 			return err
 		}
 		for _, match := range matches {
-			if err := aggregator.Reduce(q.matches, match); err != nil {
+			if err := aggregator.Reduce(q.results, match); err != nil {
 				return err
 			}
 		}
 	}
 
-	// matches, err := filter(q.Filters, feature)
-	// if err != nil {
-	// 	return err
-	// }
-	// if len(matches) == 0 {
-	// 	return nil
-	// }
-	// for _, match := range matches {
-	// 	if err := q.Reducer.Reduce(q.matches, match); err != nil {
-	// 		return err
-	// 	}
-	// }
 	return nil
 }
 
@@ -106,12 +102,12 @@ func (q *Query) Scan(feature feature.Feature) error {
 func (q *Query) Distinct() []feature.Feature {
 	features := make([]feature.Feature, 0)
 	matched := make(map[feature.Key]struct{})
-	for _, match := range q.matches {
-		for _, feature := range match.Features {
-			key := feature.Key()
+	for _, result := range q.results {
+		for _, match := range result.Matches {
+			key := match.Feature.Key()
 			_, isMatched := matched[key]
 			if !isMatched {
-				features = append(features, feature)
+				features = append(features, match.Feature)
 				matched[key] = struct{}{}
 			}
 		}
@@ -131,42 +127,3 @@ func allMatch(conditions []Condition, feature feature.Feature) (bool, error) {
 	}
 	return true, nil
 }
-
-// type FilterMapper struct {
-// 	Filter
-// }
-
-// func (m FilterMapper) Map(feature feature.Feature) ([]Match, error) {
-
-// }
-
-func filter(filters []Filter, feature feature.Feature) ([]*Match, error) {
-	matchMap := make(map[ResultKey]*Match)
-	for _, filter := range filters {
-		isMatch, err := filter.IsMatch(feature)
-		if err != nil {
-			return nil, err
-		}
-		if isMatch {
-			key := filter.DistinctKey(feature)
-			match := matchMap[key]
-			if match == nil {
-				matchMap[key] = NewMatch(key, feature)
-			} else {
-				match.Merge(feature)
-			}
-		}
-	}
-	matches := make([]*Match, 0, len(matchMap))
-	for key, match := range matchMap {
-		// We are not setting the key ^ for performance reasons.
-		match.ResultKey = key
-		matches = append(matches, match)
-	}
-	return matches, nil
-}
-
-// +Change reducer interface so it works with Matches containing keys.
-// Wrap Filter in FilterMapper so it emits matches.
-// Wrap preconditions in PreconditionMapper so it emits matches.
-// Think.
