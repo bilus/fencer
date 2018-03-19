@@ -47,7 +47,7 @@ var countries = []*Country{
 // This example uses an example spatial feature implementation.
 // See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_preconditionsUsingPredicates() {
-	query := query.Build().Precondition(
+	query := query.Build().Where(
 		query.Pred(func(feature feature.Feature) (bool, error) {
 			return feature.(*Country).Population > 10000, nil
 		}),
@@ -80,7 +80,7 @@ func ExampleBuild_preconditionsUsingStructs() {
 	//   	  return feature.(*Country).Population > p.threshold, nil
 	//   }
 
-	query := query.Build().Precondition(PopulationGreaterThan{10000}).Query()
+	query := query.Build().Where(PopulationGreaterThan{10000}).Query()
 	for _, country := range countries {
 		query.Scan(country)
 	}
@@ -93,11 +93,11 @@ func ExampleBuild_preconditionsUsingStructs() {
 func ExampleBuild_conjunction() {
 	// Both preconditions must match.
 	q := query.Build()
-	q.Precondition(
+	q.Where(
 		query.Pred(func(feature feature.Feature) (bool, error) {
 			return feature.(*Country).Population > 10000, nil
 		}))
-	q.Precondition(
+	q.Where(
 		query.Pred(func(feature feature.Feature) (bool, error) {
 			return strings.HasPrefix(feature.(*Country).Name, "T"), nil
 		}),
