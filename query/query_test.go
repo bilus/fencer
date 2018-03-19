@@ -113,31 +113,23 @@ func ExampleBuild_conjunction() {
 type MostPopulatedByRegion struct{}
 
 func (MostPopulatedByRegion) Map(feature feature.Feature) ([]*query.Match, error) {
-	return []*query.Match{
-		query.NewMatch(query.ResultKey(feature.(*Country).Region), feature),
-	}, nil
+	return query.NewMatch(query.ResultKey(feature.(*Country).Region), feature).ToSlice(), nil
 }
 
-func (MostPopulatedByRegion) Reduce(results map[query.ResultKey]*query.Result, match *query.Match) error {
-	existingResult := results[match.ResultKey]
-	if existingResult == nil {
-		results[match.ResultKey] = query.NewResult(match)
+func (MostPopulatedByRegion) Reduce(result *query.Result, match *query.Match) error {
+	if len(result.Matches) == 0 {
+		result.Replace(match)
 		return nil
 	}
 
 	// You'd probably use something more robust in production code. :>
-	existingCountry := existingResult.Matches[0].Feature.(*Country)
+	existingCountry := result.Matches[0].Feature.(*Country)
 	currentCountry := match.Feature.(*Country)
 	if existingCountry.Population < currentCountry.Population {
-		results[match.ResultKey] = query.NewResult(match)
+		result.Replace(match)
 	}
 	return nil
 }
-
-// func (MostPopulatedByRegion) Map(feature feature.Feature) ([]query.Match, error) {
-// 	country := feature.(*Country)
-// 	return query.Emit{query.NewMatch(country.Region, feature)}
-// }
 
 // This example uses an example spatial feature implementation.
 // See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
