@@ -22,16 +22,14 @@ type Aggregator interface {
 	Reducer
 }
 
-type Pipeline struct {
+type StreamAggregator struct {
 	Mappers []Mapper
 	Reducer
 }
 
-// TODO: Add test Pipeline is an Aggregator.
-
-func (pipeline Pipeline) Map(match *Match) (*Match, error) {
+func (stream StreamAggregator) Map(match *Match) (*Match, error) {
 	var err error
-	for _, mapper := range pipeline.Mappers {
+	for _, mapper := range stream.Mappers {
 		match, err = mapper.Map(match)
 		if err != nil {
 			return nil, err
@@ -43,8 +41,8 @@ func (pipeline Pipeline) Map(match *Match) (*Match, error) {
 	return match, nil
 }
 
-func NewPipeline(reducer Reducer, mappers ...Mapper) Pipeline {
-	return Pipeline{
+func NewPipeline(reducer Reducer, mappers ...Mapper) StreamAggregator {
+	return StreamAggregator{
 		Mappers: mappers,
 		Reducer: reducer,
 	}
@@ -64,23 +62,19 @@ func (match *Match) Replace(resultKey interface{}) {
 	match.ResultKeys = []ResultKey{resultKey}
 }
 
-// Query is a nearest neighour query returning features matching the filters,
-// that are closest to the Point, at most one Match per ResultKey.
-//
-// Precedence:
-// Precondition0 AND Precondition1 AND ... PreconditionN AND (Filter0 OR Filter1 OR ... FilterN)
+// Query holds configuration of a query pipeline for narrowing down spatial
+// search results.
 type Query struct {
-	// Mapper
-	Preconditions []Condition // Logical conjunction.
-	Aggregators   []Aggregator
-	results       *Result
+	Conditions  []Condition  // Logical conjunction (AND).
+	Aggregators []Aggregator // Logical disjunction (OR).
+	results     *Result
 }
 
 // Scan sends a feature through the query pipeline, first rejecting it unless
 // all preconditions (conjunction step) match, then applying each of the filters
 // and finally performing a reduce step to update query results.
 func (q *Query) Scan(feature feature.Feature) error {
-	isMatch, err := allMatch(q.Preconditions, feature)
+	isMatch, err := allMatch(q.Conditions, feature)
 	if err != nil {
 		return err
 	}
@@ -127,7 +121,3 @@ func allMatch(conditions []Condition, feature feature.Feature) (bool, error) {
 	}
 	return true, nil
 }
-
-// TODO:
-// - Precondition -> Where
-// - Get rid of reducer and filters.

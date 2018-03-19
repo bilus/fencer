@@ -128,7 +128,7 @@ func ExampleIndex_Query_preconditions() {
 	// A 1000kmx1000km bounding rectangle around the location so we match both cities.
 	radius := 500000.0
 	bounds, _ := geo.NewBoundsAround(location, radius)
-	results, _ := index.Query(bounds, query.Build().Precondition(PopulationGreaterThan{500000}).Query())
+	results, _ := index.Query(bounds, query.Build().Where(PopulationGreaterThan{500000}).Query())
 	fmt.Println(len(results), "result")
 	// Output: 1 result
 }

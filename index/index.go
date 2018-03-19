@@ -50,7 +50,7 @@ func (index *Index) FindContaining(point primitives.Point) ([]feature.Feature, e
 	}
 	return index.Query(
 		bounds,
-		query.Build().Precondition(query.Contains{point}).Query(),
+		query.Build().Where(query.Contains{point}).Query(),
 	)
 }
 
