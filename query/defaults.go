@@ -18,6 +18,14 @@ func (defaultAggregator) Map(match *Match) (*Match, error) {
 }
 
 func (defaultAggregator) Reduce(result *Result, match *Match) error {
-	result.Replace(match)
+	for _, k := range match.ResultKeys {
+		err := result.Update(k, func(entry *ResultEntry) error {
+			entry.Features = []feature.Feature{match.Feature}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

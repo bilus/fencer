@@ -9,6 +9,7 @@ func Build() *builder {
 	return &builder{}
 }
 
+// Query returns a complete constructed query.
 func (builder *builder) Query() Query {
 	if len(builder.query.Preconditions) == 0 {
 		builder.Precondition(defaultFilter{})
@@ -28,6 +29,7 @@ func (builder *builder) Precondition(condition Condition) *builder {
 	return builder
 }
 
+// Aggregate adds a new aggregator.
 func (builder *builder) Aggregate(aggregator Aggregator) *builder {
 	builder.query.Aggregators = append(builder.query.Aggregators, aggregator)
 	return builder
