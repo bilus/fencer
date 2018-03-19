@@ -10,25 +10,14 @@ func (defaultFilter) IsMatch(feature feature.Feature) (bool, error) {
 	return true, nil
 }
 
-func (defaultFilter) DistinctKey(feature feature.Feature) ResultKey {
-	return defaultResultKey{feature.Key()}
+type defaultAggregator struct{}
+
+func (defaultAggregator) Map(match *Match) (*Match, error) {
+	match.AddKey(match.Feature.Key())
+	return match, nil
 }
 
-type defaultResultKey struct {
-	feature.Key
-}
-
-type defaultReducer struct{}
-
-func (defaultReducer) Reduce(result *Result, match *Match) error {
+func (defaultAggregator) Reduce(result *Result, match *Match) error {
 	result.Replace(match)
 	return nil
-}
-
-type defaultAggregator struct {
-	defaultReducer
-}
-
-func (defaultAggregator) Map(feature feature.Feature) ([]*Match, error) {
-	return NewMatch(feature.Key(), feature).ToSlice(), nil
 }

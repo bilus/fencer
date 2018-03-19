@@ -112,22 +112,32 @@ func ExampleBuild_conjunction() {
 
 type MostPopulatedByRegion struct{}
 
-func (MostPopulatedByRegion) Map(feature feature.Feature) ([]*query.Match, error) {
-	return query.NewMatch(query.ResultKey(feature.(*Country).Region), feature).ToSlice(), nil
+func (MostPopulatedByRegion) Map(match *query.Match) (*query.Match, error) {
+	match.Replace(match.Feature.(*Country).Region)
+	return match, nil
 }
 
 func (MostPopulatedByRegion) Reduce(result *query.Result, match *query.Match) error {
-	if len(result.Matches) == 0 {
-		result.Replace(match)
-		return nil
+	for _, key := range match.ResultKeys {
+		err := result.Update(key, func(entry *query.ResultEntry) error {
+			if len(entry.Features) == 0 {
+				entry.Features = []feature.Feature{match.Feature}
+				return nil
+			}
+
+			// In production you'd probably want to use something more robust :>
+			existingCountry := entry.Features[0].(*Country)
+			currentCountry := match.Feature.(*Country)
+			if existingCountry.Population < currentCountry.Population {
+				entry.Features = []feature.Feature{match.Feature}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
 	}
 
-	// You'd probably use something more robust in production code. :>
-	existingCountry := result.Matches[0].Feature.(*Country)
-	currentCountry := match.Feature.(*Country)
-	if existingCountry.Population < currentCountry.Population {
-		result.Replace(match)
-	}
 	return nil
 }
 

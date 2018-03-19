@@ -1,69 +1,67 @@
 package query
 
 import (
+	"fmt"
 	"github.com/bilus/fencer/feature"
 )
 
-type ResultKey interface{}
-
-type Result struct {
-	Matches []*Match
-	Meta    interface{}
-}
-
-func NewResult(matches ...*Match) *Result {
-	return &Result{
-		Matches: matches,
-	}
-}
-
-func (result *Result) Merge(match *Match) error {
-	result.Matches = append(result.Matches, match)
-	return nil
-}
-
-func (result *Result) Replace(match *Match) error {
-	result.Matches = match.ToSlice()
-	return nil
-}
-
 type Condition interface {
 	IsMatch(feature feature.Feature) (bool, error)
-}
-
-type Distinctor interface {
-	DistinctKey(feature feature.Feature) ResultKey
 }
 
 type Reducer interface {
 	Reduce(result *Result, match *Match) error
 }
 
-type Filter interface {
-	Condition
-	Distinctor
+type Mapper interface {
+	Map(match *Match) (*Match, error)
 }
 
 type Aggregator interface {
-	Map(feature feature.Feature) ([]*Match, error)
+	Mapper
 	Reducer
 }
 
-type Match struct {
-	ResultKey
-	Feature feature.Feature
-	Meta    interface{}
+type Pipeline struct {
+	Mappers []Mapper
+	Reducer
 }
 
-func NewMatch(resultKey ResultKey, feature feature.Feature) *Match {
-	return &Match{
-		ResultKey: resultKey,
-		Feature:   feature,
+// TODO: Add test Pipeline is an Aggregator.
+
+func (pipeline Pipeline) Map(match *Match) (*Match, error) {
+	var err error
+	for _, mapper := range pipeline.Mappers {
+		match, err = mapper.Map(match)
+		if err != nil {
+			return nil, err
+		}
+		if match == nil {
+			return nil, fmt.Errorf("Internal error: nil match returned from mapper %T", mapper)
+		}
+	}
+	return match, nil
+}
+
+func NewPipeline(reducer Reducer, mappers ...Mapper) Pipeline {
+	return Pipeline{
+		Mappers: mappers,
+		Reducer: reducer,
 	}
 }
 
-func (match *Match) ToSlice() []*Match {
-	return []*Match{match}
+type Match struct {
+	ResultKeys []ResultKey
+	Feature    feature.Feature
+	Meta       interface{}
+}
+
+func (match *Match) AddKey(resultKey interface{}) {
+	match.ResultKeys = append(match.ResultKeys, resultKey)
+}
+
+func (match *Match) Replace(resultKey interface{}) {
+	match.ResultKeys = []ResultKey{resultKey}
 }
 
 // Query is a nearest neighour query returning features matching the filters,
@@ -74,10 +72,8 @@ func (match *Match) ToSlice() []*Match {
 type Query struct {
 	// Mapper
 	Preconditions []Condition // Logical conjunction.
-	Filters       []Filter    // Logical disjunction.
-	Reducer
-	Aggregators []Aggregator
-	results     map[ResultKey]*Result
+	Aggregators   []Aggregator
+	results       *Result
 }
 
 // Scan sends a feature through the query pipeline, first rejecting it unless
@@ -91,21 +87,23 @@ func (q *Query) Scan(feature feature.Feature) error {
 	if !isMatch {
 		return nil
 	}
+	match := &Match{
+		Feature: feature,
+	}
 	for _, aggregator := range q.Aggregators {
-		matches, err := aggregator.Map(feature)
-
+		match, err := aggregator.Map(match)
 		if err != nil {
 			return err
 		}
-		for _, match := range matches {
-			result := q.results[match.ResultKey]
-			if result == nil {
-				result = NewResult()
-				q.results[match.ResultKey] = result
-			}
-			if err := aggregator.Reduce(result, match); err != nil {
-				return err
-			}
+		if match == nil {
+			return fmt.Errorf("Internal error: nil match returned from aggregator %T", aggregator)
+		}
+		if len(match.ResultKeys) == 0 {
+			// Rejected by Map.
+			continue
+		}
+		if err := aggregator.Reduce(q.results, match); err != nil {
+			return err
 		}
 	}
 
@@ -114,19 +112,7 @@ func (q *Query) Scan(feature feature.Feature) error {
 
 // Distinct returns distinct features matching the query.
 func (q *Query) Distinct() []feature.Feature {
-	features := make([]feature.Feature, 0)
-	matched := make(map[feature.Key]struct{})
-	for _, result := range q.results {
-		for _, match := range result.Matches {
-			key := match.Feature.Key()
-			_, isMatched := matched[key]
-			if !isMatched {
-				features = append(features, match.Feature)
-				matched[key] = struct{}{}
-			}
-		}
-	}
-	return features
+	return q.results.distinct()
 }
 
 func allMatch(conditions []Condition, feature feature.Feature) (bool, error) {
@@ -141,3 +127,7 @@ func allMatch(conditions []Condition, feature feature.Feature) (bool, error) {
 	}
 	return true, nil
 }
+
+// TODO:
+// - Precondition -> Where
+// - Get rid of reducer and filters.
