@@ -9,45 +9,6 @@ type Condition interface {
 	IsMatch(feature feature.Feature) (bool, error)
 }
 
-type Reducer interface {
-	Reduce(result *Result, match *Match) error
-}
-
-type Mapper interface {
-	Map(match *Match) (*Match, error)
-}
-
-type Aggregator interface {
-	Mapper
-	Reducer
-}
-
-type StreamAggregator struct {
-	Mappers []Mapper
-	Reducer
-}
-
-func (stream StreamAggregator) Map(match *Match) (*Match, error) {
-	var err error
-	for _, mapper := range stream.Mappers {
-		match, err = mapper.Map(match)
-		if err != nil {
-			return nil, err
-		}
-		if match == nil {
-			return nil, fmt.Errorf("Internal error: nil match returned from mapper %T", mapper)
-		}
-	}
-	return match, nil
-}
-
-func NewPipeline(reducer Reducer, mappers ...Mapper) StreamAggregator {
-	return StreamAggregator{
-		Mappers: mappers,
-		Reducer: reducer,
-	}
-}
-
 type Match struct {
 	ResultKeys []ResultKey
 	Feature    feature.Feature

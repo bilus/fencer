@@ -48,6 +48,8 @@ type streamBuilder struct {
 	stream *StreamAggregator
 }
 
+// Map adds a new mapper to the stream; mappers form a sequence with each consecutive mappers
+// transforming match received from the previous one.
 func (builder *streamBuilder) Map(mapper Mapper) *streamBuilder {
 	builder.stream.Mappers = append(builder.stream.Mappers, mapper)
 	return builder
