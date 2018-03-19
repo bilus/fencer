@@ -22,7 +22,7 @@ func (builder *builder) Query() Query {
 	if len(builder.query.Aggregators) == 0 {
 		builder.Aggregate(defaultAggregator{})
 	}
-	builder.query.matches = make(map[ResultKey]*Match)
+	builder.query.results = make(map[ResultKey]*Result)
 	return builder.query
 }
 
