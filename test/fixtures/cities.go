@@ -6,8 +6,6 @@ import (
 	"github.com/bilus/fencer/primitives"
 )
 
-var _ feature.Feature = (*City)(nil)
-
 var (
 	Wroclaw, _  = NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
 	Szczecin, _ = NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
@@ -29,8 +27,11 @@ type City struct {
 	BoundingRect *primitives.Rect
 }
 
+var _ feature.Feature = (*City)(nil)
+
+// NewCity creates a new city.
 func NewCity(id CityID, name string, population int, boundaries pip.Polygon) (City, error) {
-	bounds, err := makeRect(pip.GetBoundingBox(boundaries))
+	bounds, err := boundingBoxToRect(pip.GetBoundingBox(boundaries))
 	if err != nil {
 		return City{}, err
 	}
@@ -61,17 +62,6 @@ func (r *City) Bounds() *primitives.Rect {
 
 func (r *City) Key() feature.Key {
 	return r.ID
-}
-
-func makeRect(boundingRect pip.BoundingBox) (*primitives.Rect, error) {
-	return primitives.NewRect(
-		primitives.Point{
-			boundingRect.BottomLeft.X,
-			boundingRect.BottomLeft.Y,
-		},
-		boundingRect.TopRight.X-boundingRect.BottomLeft.X,
-		boundingRect.TopRight.Y-boundingRect.BottomLeft.Y,
-	)
 }
 
 // Rough outlines of two example cities.
