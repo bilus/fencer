@@ -2,7 +2,8 @@ package query
 
 import (
 	"fmt"
-	"github.com/bilus/fencer/feature"
+
+	"go.bilus.io/fencer/feature"
 )
 
 type Condition interface {

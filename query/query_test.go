@@ -2,12 +2,13 @@ package query_test
 
 import (
 	"fmt"
-	"github.com/bilus/fencer/feature"
-	"github.com/bilus/fencer/primitives"
-	"github.com/bilus/fencer/query"
 	"sort"
 	"strconv"
 	"strings"
+
+	"go.bilus.io/fencer/feature"
+	"go.bilus.io/fencer/primitives"
+	"go.bilus.io/fencer/query"
 	// "testing"
 )
 
@@ -49,7 +50,7 @@ var countries = []*Country{
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
+// See https://go.bilus.io/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_preconditionsUsingPredicates() {
 	query := query.Build().Where(
 		query.Pred(func(feature feature.Feature) (bool, error) {
@@ -72,7 +73,7 @@ func (p PopulationGreaterThan) IsMatch(feature feature.Feature) (bool, error) {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
+// See https://go.bilus.io/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_preconditionsUsingStructs() {
 	// This is how you implement struct conditions:
 	//
@@ -99,7 +100,7 @@ func ExampleBuild_preconditionsUsingStructs() {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
+// See https://go.bilus.io/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_conjunction() {
 	// Both preconditions must match.
 	q := query.Build()
@@ -157,7 +158,7 @@ func (MostPopulated) Reduce(result *query.Result, match *query.Match) error {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
+// See https://go.bilus.io/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_groupingResults() {
 	qb := query.Build()
 	stream := qb.StreamTo(MostPopulated{})
@@ -186,7 +187,7 @@ func (DecliningPopulation) Map(match *query.Match) (*query.Match, error) {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
+// See https://go.bilus.io/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_complexAggregation() {
 	qb := query.Build()
 	stream := qb.StreamTo(MostPopulated{})

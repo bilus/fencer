@@ -1,8 +1,8 @@
 package query
 
 import (
-	"github.com/bilus/fencer/feature"
-	"github.com/bilus/fencer/primitives"
+	"go.bilus.io/fencer/feature"
+	"go.bilus.io/fencer/primitives"
 )
 
 // Contains is an example condition. It accepts all features containing a given point.

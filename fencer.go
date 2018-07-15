@@ -1,9 +1,9 @@
-package fencer
+package fencer // import "go.bilus.io/fencer"
 
 // Import packages so they are pulled in using `go get github.com/bilus/fencer`
 import (
-	_ "github.com/bilus/fencer/feature"
-	_ "github.com/bilus/fencer/geo"
-	_ "github.com/bilus/fencer/index"
-	_ "github.com/bilus/fencer/query"
+	_ "go.bilus.io/fencer/feature"
+	_ "go.bilus.io/fencer/geo"
+	_ "go.bilus.io/fencer/index"
+	_ "go.bilus.io/fencer/query"
 )

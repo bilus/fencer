@@ -2,12 +2,13 @@ package index_test
 
 import (
 	"fmt"
+
 	"github.com/JamesMilnerUK/pip-go"
-	"github.com/bilus/fencer/feature"
-	"github.com/bilus/fencer/geo"
-	"github.com/bilus/fencer/index"
-	"github.com/bilus/fencer/primitives"
-	"github.com/bilus/fencer/query"
+	"go.bilus.io/fencer/feature"
+	"go.bilus.io/fencer/geo"
+	"go.bilus.io/fencer/index"
+	"go.bilus.io/fencer/primitives"
+	"go.bilus.io/fencer/query"
 )
 
 // CityID uniquely identifies a city.
@@ -73,7 +74,7 @@ func makeRect(boundingRect pip.BoundingBox) (*primitives.Rect, error) {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
+// See https://go.bilus.io/fencer/blob/master/index/index_test.go for more details.
 func ExampleIndex_Lookup() {
 	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
 	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
@@ -84,7 +85,7 @@ func ExampleIndex_Lookup() {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
+// See https://go.bilus.io/fencer/blob/master/index/index_test.go for more details.
 func ExampleIndex_FindContaining() {
 	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
 	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
@@ -96,7 +97,7 @@ func ExampleIndex_FindContaining() {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
+// See https://go.bilus.io/fencer/blob/master/index/index_test.go for more details.
 func ExampleIndex_Intersect() {
 	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
 	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
@@ -119,7 +120,7 @@ func (c PopulationGreaterThan) IsMatch(feature feature.Feature) (bool, error) {
 }
 
 // This example uses an example spatial feature implementation.
-// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
+// See https://go.bilus.io/fencer/blob/master/index/index_test.go for more details.
 func ExampleIndex_Query_preconditions() {
 	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
 	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})

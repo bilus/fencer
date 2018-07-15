@@ -2,8 +2,9 @@ package feature_test
 
 import (
 	"fmt"
-	"github.com/bilus/fencer/feature"
-	"github.com/bilus/fencer/primitives"
+
+	"go.bilus.io/fencer/feature"
+	"go.bilus.io/fencer/primitives"
 )
 
 // RestaurantID uniquely identifies an example spatial feature.

@@ -1,7 +1,7 @@
 package query
 
 import (
-	"github.com/bilus/fencer/feature"
+	"go.bilus.io/fencer/feature"
 )
 
 // defaultFilter accepts all features.

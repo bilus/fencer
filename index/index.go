@@ -1,11 +1,12 @@
 package index
 
 import (
-	"github.com/bilus/fencer/feature"
-	"github.com/bilus/fencer/primitives"
-	"github.com/bilus/fencer/query"
-	"github.com/bilus/rtreego"
 	"math"
+
+	"github.com/bilus/rtreego"
+	"go.bilus.io/fencer/feature"
+	"go.bilus.io/fencer/primitives"
+	"go.bilus.io/fencer/query"
 )
 
 type rtreegoFeatureAdapter struct {

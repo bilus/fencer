@@ -3,7 +3,7 @@
 package feature
 
 import (
-	"github.com/bilus/fencer/primitives"
+	"go.bilus.io/fencer/primitives"
 )
 
 // Key uniquely identifies a feature.
