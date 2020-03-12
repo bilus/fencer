@@ -1,13 +1,22 @@
 package index
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/bilus/rtreego"
-	"go.bilus.io/fencer/feature"
-	"go.bilus.io/fencer/primitives"
-	"go.bilus.io/fencer/query"
+	"github.com/bilus/fencer/feature"
+	"github.com/bilus/fencer/primitives"
+	"github.com/bilus/fencer/query"
 )
+
+type ErrFeatureNotFound struct {
+	Key feature.Key
+}
+
+func (err ErrFeatureNotFound) Error() string {
+	return fmt.Sprintf("Feature not found (key = %q)", err.Key)
+}
 
 type rtreegoFeatureAdapter struct {
 	feature.Feature
@@ -17,16 +26,16 @@ func (a rtreegoFeatureAdapter) Bounds() *rtreego.Rect {
 	return (*rtreego.Rect)(a.Feature.Bounds())
 }
 
-type featureByID map[feature.Key]feature.Feature
+type featureByKey map[feature.Key]feature.Feature
 
 type Index struct {
 	*rtreego.Rtree
-	featureByID
+	featureByKey
 }
 
 // Creates a new index containing features.
 func New(features []feature.Feature) (*Index, error) {
-	index := Index{rtreego.NewTree(2, 5, 20), make(featureByID)}
+	index := Index{rtreego.NewTree(2, 5, 20), make(featureByKey)}
 	for _, f := range features {
 		if err := index.Insert(f); err != nil {
 			return nil, err
@@ -35,10 +44,36 @@ func New(features []feature.Feature) (*Index, error) {
 	return &index, nil
 }
 
-// Inserts adds a feature to the index.
+// Insert adds a feature to the index.
 func (index *Index) Insert(f feature.Feature) error {
 	index.Rtree.Insert(rtreegoFeatureAdapter{f})
-	index.featureByID[f.Key()] = f
+	index.featureByKey[f.Key()] = f
+	return nil
+}
+
+// Delete removes a feature by its key.
+func (index *Index) Delete(key feature.Key) error {
+	feature, ok := index.featureByKey[key]
+	if !ok {
+		return ErrFeatureNotFound{Key: key}
+	}
+
+	delete(index.featureByKey, key)
+	ok = index.Rtree.DeleteWithComparator(rtreegoFeatureAdapter{feature},
+		func (l rtreego.Spatial, r rtreego.Spatial) bool {
+			lf, ok := l.(rtreegoFeatureAdapter)
+			if !ok {
+				panic("Internal error in Index.Delete")
+			}
+			rf, ok := r.(rtreegoFeatureAdapter)
+			if !ok {
+				panic("Internal error in Index.Delete")
+			}
+			return lf.Feature.Key() == rf.Feature.Key()
+		})
+	if !ok {
+		return ErrFeatureNotFound{Key: key}
+	}
 	return nil
 }
 
@@ -77,7 +112,7 @@ func (index *Index) Query(bounds *primitives.Rect, query query.Query) ([]feature
 
 // Lookup returns a feature based on its key. It returns a slice containing one result or an empty slice if there's no match.
 func (index *Index) Lookup(key feature.Key) ([]feature.Feature, error) {
-	f := index.featureByID[key]
+	f := index.featureByKey[key]
 	if f != nil {
 		return []feature.Feature{f}, nil
 
