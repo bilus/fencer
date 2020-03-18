@@ -2,6 +2,7 @@ package index_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/JamesMilnerUK/pip-go"
 	"github.com/bilus/fencer/feature"
@@ -139,6 +140,55 @@ func ExampleIndex_Delete_Intersect() {
 	// Output: 1 result
 }
 
+// This example uses an example spatial feature implementation.
+// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
+func ExampleIndex_Update_LookupNoBoundariesChanged() {
+	wroclaw, _ := NewCity("wrocław", "Wrocław", 500000, pip.Polygon{Points: wroclawBoundaries})
+	szczecin, _ := NewCity("szczecin", "Szczecin", 300000, pip.Polygon{Points: szczecinBoundaries})
+	index, _ := index.New([]feature.Feature{&wroclaw, &szczecin})
+	szczecin2, _ := NewCity("szczecin", "Szczecin", 350000, pip.Polygon{Points: szczecinBoundaries})
+	_ = index.Update(&szczecin2) // Update key = "szczecin"
+	results, _ := index.Lookup(CityID("szczecin"))
+	population := results[0].(*City).Population
+	fmt.Println("Population:", population)
+	// Output: Population: 350000
+}
+
+// This example uses an example spatial feature implementation.
+// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
+func ExampleIndex_Update_IntersectNoBoundariesChanged() {
+	szczecin, _ := NewCity("szczecin", "Szczecin", 300000, pip.Polygon{Points: szczecinBoundaries})
+	index, _ := index.New([]feature.Feature{&szczecin})
+	szczecin2, _ := NewCity("szczecin", "Szczecin", 350000, pip.Polygon{Points: szczecinBoundaries})
+	_ = index.Update(&szczecin2) // Update key = "szczecin"
+	location := primitives.Point{14.499678611755371, 53.41209631751399}
+	bounds, _ := geo.NewBoundsAround(location, 500000.0)
+	results, _ := index.Intersect(bounds)
+	population := results[0].(*City).Population
+	fmt.Println("Population:", population)
+	// Output: Population: 350000
+}
+
+
+// This example uses an example spatial feature implementation.
+// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
+func ExampleIndex_Update_BoundariesChanged() {
+	wroclaw, _ := NewCity("wrocław", "Wrocław", 500000, pip.Polygon{Points: wroclawBoundaries})
+	szczecin, _ := NewCity("szczecin", "Szczecin", 300000, pip.Polygon{Points: szczecinBoundaries})
+	index, _ := index.New([]feature.Feature{&wroclaw, &szczecin})
+	szczecin2, _ := NewCity("szczecin", "Szczecin", 350000, pip.Polygon{Points: farAwayLandBoundaries})
+	_ = index.Update(&szczecin2) // Update key = "szczecin"
+	location := primitives.Point{14.499678611755371, 53.41209631751399}
+	// A 1000kmx1000km bounding rectangle around the location so we match both cities.
+	radius := 500000.0
+	bounds, _ := geo.NewBoundsAround(location, radius)
+	origResults, _ := index.Intersect(bounds)
+	newBounds, _ := geo.NewBoundsAround(primitives.Point{0, 0}, 50)
+	newResults, _ := index.Intersect(newBounds)
+	fmt.Println(len(origResults), "matching original location,", len(newResults), "matching new location")
+	// Output: 1 matching original location, 1 matching new location
+}
+
 type PopulationGreaterThan struct {
 	Threshold int
 }
@@ -162,8 +212,27 @@ func ExampleIndex_Query_preconditions() {
 	// Output: 1 result
 }
 
+// Benchmark_Query-8   	 1133373	      1054 ns/op
+// PASS
+// ok  	github.com/bilus/fencer/index	2.209s
+func Benchmark_Query(b* testing.B) {
+	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
+	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
+	index, _ := index.New([]feature.Feature{&wroclaw, &szczecin})
+	location := primitives.Point{14.499678611755371, 53.41209631751399}
+	// A 1000kmx1000km bounding rectangle around the location so we match both cities.
+	radius := 500000.0
+	bounds, _ := geo.NewBoundsAround(location, radius)
+	for i := 0; i < b.N; i++ {
+		index.Query(bounds, query.Build().Where(PopulationGreaterThan{500000}).Query())
+	}
+}
+
 // Rough outlines of two example cities.
 var (
+	farAwayLandBoundaries = []pip.Point{
+		{X:0, Y:0}, {X:1, Y:0}, {X:1, Y:1}, {X:0, Y:1}, {X:0, Y:0},
+	}
 	wroclawBoundaries = []pip.Point{
 		{X: 16.806, Y: 51.135}, {X: 16.804, Y: 51.136}, {X: 16.803, Y: 51.14}, {X: 16.81, Y: 51.153},
 		{X: 16.814, Y: 51.154}, {X: 16.814, Y: 51.156}, {X: 16.816, Y: 51.157}, {X: 16.824, Y: 51.156},

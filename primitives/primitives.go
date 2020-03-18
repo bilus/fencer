@@ -16,6 +16,10 @@ func NewRect(p Point, lengths ...float64) (*Rect, error) {
 	return (*Rect)(r), nil
 }
 
+func (r *Rect) Equal(other *Rect) bool {
+	return ((*rtreego.Rect)(r)).Equal((*rtreego.Rect)(other))
+}
+
 // Point represents a point.
 type Point rtreego.Point
 

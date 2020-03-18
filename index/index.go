@@ -19,15 +19,26 @@ func (err ErrFeatureNotFound) Error() string {
 }
 
 type rtreegoFeatureAdapter struct {
-	feature.Feature
+	key feature.Key
+	bounds *rtreego.Rect
 }
 
+func newRtreegoFeatureAdapter(feature feature.Feature) rtreegoFeatureAdapter {
+	return rtreegoFeatureAdapter{
+		key: feature.Key(),
+		bounds: (*rtreego.Rect)(feature.Bounds()),
+	}
+}
+
+
 func (a rtreegoFeatureAdapter) Bounds() *rtreego.Rect {
-	return (*rtreego.Rect)(a.Feature.Bounds())
+	return a.bounds
 }
 
 type featureByKey map[feature.Key]feature.Feature
 
+// Index allows finding features by bounding box and custom queries.
+// It is NOT thread-safe.
 type Index struct {
 	*rtreego.Rtree
 	featureByKey
@@ -46,7 +57,7 @@ func New(features []feature.Feature) (*Index, error) {
 
 // Insert adds a feature to the index.
 func (index *Index) Insert(f feature.Feature) error {
-	index.Rtree.Insert(rtreegoFeatureAdapter{f})
+	index.Rtree.Insert(newRtreegoFeatureAdapter(f))
 	index.featureByKey[f.Key()] = f
 	return nil
 }
@@ -59,7 +70,7 @@ func (index *Index) Delete(key feature.Key) error {
 	}
 
 	delete(index.featureByKey, key)
-	ok = index.Rtree.DeleteWithComparator(rtreegoFeatureAdapter{feature},
+	ok = index.Rtree.DeleteWithComparator(newRtreegoFeatureAdapter(feature),
 		func (l rtreego.Spatial, r rtreego.Spatial) bool {
 			lf, ok := l.(rtreegoFeatureAdapter)
 			if !ok {
@@ -69,11 +80,30 @@ func (index *Index) Delete(key feature.Key) error {
 			if !ok {
 				panic("Internal error in Index.Delete")
 			}
-			return lf.Feature.Key() == rf.Feature.Key()
+			return lf.key == rf.key
 		})
 	if !ok {
 		return ErrFeatureNotFound{Key: key}
 	}
+	return nil
+}
+
+// Update updates a feature (either its bounding rectangle or properties).
+func (index *Index) Update(f feature.Feature) error {
+	existing, ok := index.featureByKey[f.Key()]
+	if !ok {
+		return ErrFeatureNotFound{Key: f.Key()}
+	}
+	if !existing.Bounds().Equal(f.Bounds()) {
+		// Bounds changed, re-insert.
+		if err := index.Delete(existing.Key()); err != nil {
+			return err
+		}
+
+		return index.Insert(f)
+	}
+	// Bounds haven't changed
+	index.featureByKey[f.Key()] = f
 	return nil
 }
 
@@ -102,7 +132,11 @@ func (index *Index) Query(bounds *primitives.Rect, query query.Query) ([]feature
 		return nil, nil
 	}
 	for _, candidate := range candidates {
-		err := query.Scan(candidate.(rtreegoFeatureAdapter).Feature)
+		feature, err := index.lookupOne(candidate.(rtreegoFeatureAdapter).key)
+		if err != nil {
+			return nil, err
+		}
+		err = query.Scan(feature)
 		if err != nil {
 			return nil, err
 		}
@@ -112,12 +146,23 @@ func (index *Index) Query(bounds *primitives.Rect, query query.Query) ([]feature
 
 // Lookup returns a feature based on its key. It returns a slice containing one result or an empty slice if there's no match.
 func (index *Index) Lookup(key feature.Key) ([]feature.Feature, error) {
-	f := index.featureByKey[key]
-	if f != nil {
+	f, ok := index.featureByKey[key]
+	if ok && f != nil {
 		return []feature.Feature{f}, nil
 
 	} else {
 		return nil, nil
+	}
+}
+
+// lookupOne returns one feature based on its key or error.
+func (index *Index) lookupOne(key feature.Key) (feature.Feature, error) {
+	f, ok := index.featureByKey[key]
+	if ok {
+		return f, nil
+
+	} else {
+		return nil, ErrFeatureNotFound{Key: key}
 	}
 
 }

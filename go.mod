@@ -7,3 +7,5 @@ require (
 	github.com/paulmach/go.geojson v1.4.0 // indirect
 	github.com/twpayne/go-geom v1.0.5
 )
+
+go 1.13
