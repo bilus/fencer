@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/bilus/rtreego"
 	"github.com/bilus/fencer/feature"
 	"github.com/bilus/fencer/primitives"
 	"github.com/bilus/fencer/query"
+	"github.com/bilus/rtreego"
+	"github.com/zyedidia/generic"
+	"github.com/zyedidia/generic/hashset"
 )
 
 type ErrFeatureNotFound struct {
@@ -19,17 +21,16 @@ func (err ErrFeatureNotFound) Error() string {
 }
 
 type rtreegoFeatureAdapter struct {
-	key feature.Key
+	key    feature.Key
 	bounds *rtreego.Rect
 }
 
 func newRtreegoFeatureAdapter(feature feature.Feature) rtreegoFeatureAdapter {
 	return rtreegoFeatureAdapter{
-		key: feature.Key(),
+		key:    feature.Key(),
 		bounds: (*rtreego.Rect)(feature.Bounds()),
 	}
 }
-
 
 func (a rtreegoFeatureAdapter) Bounds() *rtreego.Rect {
 	return a.bounds
@@ -71,7 +72,7 @@ func (index *Index) Delete(key feature.Key) error {
 
 	delete(index.featureByKey, key)
 	ok = index.Rtree.DeleteWithComparator(newRtreegoFeatureAdapter(feature),
-		func (l rtreego.Spatial, r rtreego.Spatial) bool {
+		func(l rtreego.Spatial, r rtreego.Spatial) bool {
 			lf, ok := l.(rtreegoFeatureAdapter)
 			if !ok {
 				panic("Internal error in Index.Delete")
@@ -153,6 +154,18 @@ func (index *Index) Lookup(key feature.Key) ([]feature.Feature, error) {
 	} else {
 		return nil, nil
 	}
+}
+
+// Keys returns
+func (index *Index) Keys() *hashset.Set[feature.Key] {
+	keys := hashset.New(uint64(len(index.featureByKey)),
+		func(l feature.Key, r feature.Key) bool { return l == r },
+		func(k feature.Key) uint64 { return generic.HashString(k.String()) },
+	)
+	for key := range index.featureByKey {
+		keys.Put(key)
+	}
+	return keys
 }
 
 // lookupOne returns one feature based on its key or error.
