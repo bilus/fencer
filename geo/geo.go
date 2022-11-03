@@ -1,8 +1,8 @@
 package geo
 
 import (
-	"github.com/paulmach/go.geo"
 	"github.com/bilus/fencer/primitives"
+	geo "github.com/paulmach/go.geo"
 )
 
 // NewBoundsAroundPoint creates a new bounding rectangle given a center point,

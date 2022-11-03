@@ -1,29 +1,17 @@
 // Package primitives contains basic spatial types.
 package primitives
 
-import (
-	"github.com/bilus/rtreego"
-)
+// Point represents a 2D point.
+type Point = [2]float64
 
 // Rect represents a bounding rectangle.
-type Rect rtreego.Rect
-
-func NewRect(p Point, lengths ...float64) (*Rect, error) {
-	r, err := rtreego.NewRect(rtreego.Point(p), lengths)
-	if err != nil {
-		return nil, err
-	}
-	return (*Rect)(r), nil
+type Rect struct {
+	Min, Max Point
 }
 
-func (r *Rect) Equal(other *Rect) bool {
-	return ((*rtreego.Rect)(r)).Equal((*rtreego.Rect)(other))
-}
-
-// Point represents a point.
-type Point rtreego.Point
-
-// MinDist returns a minimum distance from the point to a rectangle.
-func (p Point) MinDist(r *Rect) float64 {
-	return rtreego.Point(p).MinDist((*rtreego.Rect)(r))
+func NewRect(minPoint Point, width, height float64) (*Rect, error) {
+	return &Rect{
+		Min: Point{minPoint[0], minPoint[1]},
+		Max: Point{minPoint[0] + width, minPoint[1] + height},
+	}, nil
 }

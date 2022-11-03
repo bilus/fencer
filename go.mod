@@ -11,6 +11,8 @@ require (
 require (
 	github.com/paulmach/go.geojson v1.4.0 // indirect
 	github.com/segmentio/fasthash v1.0.3 // indirect
+	github.com/tidwall/geoindex v1.7.0 // indirect
+	github.com/tidwall/rtree v1.9.2 // indirect
 	golang.org/x/exp v0.0.0-20220218215828-6cf2b201936e // indirect
 )
 

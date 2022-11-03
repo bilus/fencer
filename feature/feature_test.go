@@ -5,6 +5,7 @@ import (
 
 	"github.com/bilus/fencer/feature"
 	"github.com/bilus/fencer/primitives"
+	"github.com/bilus/fencer/testutil"
 )
 
 // RestaurantID uniquely identifies an example spatial feature.
@@ -25,11 +26,7 @@ type Restaurant struct {
 
 // Contains a true if a point lies within a restaurant's area.
 func (r *Restaurant) Contains(point primitives.Point) (bool, error) {
-	// For simplicity sake in this example, calculate approximate minimum
-	// distance to the bounding rectangle containing the restaurant area.
-	// Normally, you'd implement your own algorithm here, for example
-	// using polygons or proximity queries.
-	return point.MinDist(r.Bounds()) == 0, nil
+	return testutil.Contains(*r.Bounds(), point), nil
 }
 
 // Bounds returns the bounding rectangle for a restaurant.

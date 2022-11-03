@@ -9,6 +9,7 @@ import (
 	"github.com/bilus/fencer/feature"
 	"github.com/bilus/fencer/primitives"
 	"github.com/bilus/fencer/query"
+	"github.com/bilus/fencer/testutil"
 	// "testing"
 )
 
@@ -32,7 +33,7 @@ func (c *Country) Key() feature.Key {
 }
 
 func (c *Country) Contains(p primitives.Point) (bool, error) {
-	return p.MinDist(c.BoundingRect) == 0, nil
+	return testutil.Contains(*c.BoundingRect, p), nil
 }
 
 func (c *Country) Bounds() *primitives.Rect {
