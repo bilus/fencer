@@ -16,12 +16,12 @@ type Match struct {
 	Meta       interface{}
 }
 
-func (match *Match) AddKey(resultKey interface{}) {
+func (match *Match) AddKey(resultKey ResultKey) {
 	match.ResultKeys = append(match.ResultKeys, resultKey)
 }
 
-func (match *Match) Replace(resultKey interface{}) {
-	match.ResultKeys = []ResultKey{resultKey}
+func (match *Match) ReplaceKeys(resultKeys ...ResultKey) {
+	match.ResultKeys = resultKeys
 }
 
 // Query holds configuration of a query pipeline for narrowing down spatial

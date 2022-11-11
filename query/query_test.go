@@ -128,7 +128,7 @@ func ExampleBuild_conjunction() {
 type GroupByRegion struct{}
 
 func (GroupByRegion) Map(match *query.Match) (*query.Match, error) {
-	match.Replace(match.Feature.(*Country).Region)
+	match.ReplaceKeys(match.Feature.(*Country).Region)
 	return match, nil
 }
 
@@ -136,7 +136,12 @@ type MostPopulated struct{}
 
 func (MostPopulated) Reduce(result *query.Result, match *query.Match) error {
 	for _, key := range match.ResultKeys {
+		// Go through all keys in the match.
+		// Note: key in the axample below is the country region since the
+		// example groups using GroupByRegion.
 		err := result.Update(key, func(entry *query.ResultEntry) error {
+			// No countries for the key yet so set the feature to the current
+			// country.
 			if len(entry.Features) == 0 {
 				entry.Features = []feature.Feature{match.Feature}
 				return nil
@@ -145,6 +150,8 @@ func (MostPopulated) Reduce(result *query.Result, match *query.Match) error {
 			// In production you'd probably want to use something more robust :>
 			existingCountry := entry.Features[0].(*Country)
 			currentCountry := match.Feature.(*Country)
+			// Replace feature for this result key with the current country
+			// iff it's more populous than the existing one.
 			if existingCountry.Population < currentCountry.Population {
 				entry.Features = []feature.Feature{match.Feature}
 			}
