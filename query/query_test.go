@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bilus/fencer/feature"
 	"github.com/bilus/fencer/primitives"
 	"github.com/bilus/fencer/query"
 	"github.com/bilus/fencer/testutil"
@@ -28,19 +27,19 @@ type Country struct {
 	BoundingRect *primitives.Rect
 }
 
-func (c *Country) Key() feature.Key {
-	return feature.Key(c.ID)
+func (c Country) Key() CountryID {
+	return c.ID
 }
 
-func (c *Country) Contains(p primitives.Point) (bool, error) {
+func (c Country) Contains(p primitives.Point) (bool, error) {
 	return testutil.Contains(*c.BoundingRect, p), nil
 }
 
-func (c *Country) Bounds() *primitives.Rect {
+func (c Country) Bounds() *primitives.Rect {
 	return c.BoundingRect
 }
 
-var countries = []*Country{
+var countries = []Country{
 	{1, "Vatican City", 800, -0.011, "Europe", makeRect(bounds[0])},
 	{2, "Tokelau", 1300, 0.014, "Polynesia", makeRect(bounds[1])},
 	{3, "Niue", 1600, -0.004, "Polynesia", makeRect(bounds[2])},
@@ -53,9 +52,9 @@ var countries = []*Country{
 // This example uses an example spatial feature implementation.
 // See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_preconditionsUsingPredicates() {
-	query := query.Build().Where(
-		query.Pred(func(feature feature.Feature) (bool, error) {
-			return feature.(*Country).Population > 10000, nil
+	query := query.Build[CountryID, Country]().Where(
+		query.Pred[CountryID, Country](func(country Country) (bool, error) {
+			return country.Population > 10000, nil
 		}),
 	).Query()
 	for _, country := range countries {
@@ -69,8 +68,8 @@ type PopulationGreaterThan struct {
 	threshold int
 }
 
-func (p PopulationGreaterThan) IsMatch(feature feature.Feature) (bool, error) {
-	return feature.(*Country).Population > p.threshold, nil
+func (p PopulationGreaterThan) IsMatch(feature Country) (bool, error) {
+	return feature.Population > p.threshold, nil
 }
 
 // This example uses an example spatial feature implementation.
@@ -86,7 +85,7 @@ func ExampleBuild_preconditionsUsingStructs() {
 	//   	  return feature.(*Country).Population > p.threshold, nil
 	//   }
 
-	query := query.Build().Where(PopulationGreaterThan{10000}).Query()
+	query := query.Build[CountryID, Country]().Where(PopulationGreaterThan{10000}).Query()
 	for _, country := range countries {
 		query.Scan(country)
 	}
@@ -104,14 +103,14 @@ func ExampleBuild_preconditionsUsingStructs() {
 // See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_conjunction() {
 	// Both preconditions must match.
-	q := query.Build()
+	q := query.Build[CountryID, Country]()
 	q.Where(
-		query.Pred(func(feature feature.Feature) (bool, error) {
-			return feature.(*Country).Population > 10000, nil
+		query.Pred[CountryID, Country](func(feature Country) (bool, error) {
+			return feature.Population > 10000, nil
 		}))
 	q.Where(
-		query.Pred(func(feature feature.Feature) (bool, error) {
-			return strings.HasPrefix(feature.(*Country).Name, "T"), nil
+		query.Pred[CountryID, Country](func(feature Country) (bool, error) {
+			return strings.HasPrefix(feature.Name, "T"), nil
 		}),
 	)
 	query := q.Query()
@@ -127,33 +126,33 @@ func ExampleBuild_conjunction() {
 
 type GroupByRegion struct{}
 
-func (GroupByRegion) Map(match *query.Match) (*query.Match, error) {
-	match.ReplaceKeys(match.Feature.(*Country).Region)
+func (GroupByRegion) Map(match *query.Match[CountryID, Country]) (*query.Match[CountryID, Country], error) {
+	match.ReplaceKeys(match.Feature.Region)
 	return match, nil
 }
 
 type MostPopulated struct{}
 
-func (MostPopulated) Reduce(result *query.Result, match *query.Match) error {
+func (MostPopulated) Reduce(result *query.Result[CountryID, Country], match *query.Match[CountryID, Country]) error {
 	for _, key := range match.ResultKeys {
 		// Go through all keys in the match.
 		// Note: key in the axample below is the country region since the
 		// example groups using GroupByRegion.
-		err := result.Update(key, func(entry *query.ResultEntry) error {
+		err := result.Update(key, func(entry *query.ResultEntry[CountryID, Country]) error {
 			// No countries for the key yet so set the feature to the current
 			// country.
 			if len(entry.Features) == 0 {
-				entry.Features = []feature.Feature{match.Feature}
+				entry.Features = []Country{match.Feature}
 				return nil
 			}
 
 			// In production you'd probably want to use something more robust :>
-			existingCountry := entry.Features[0].(*Country)
-			currentCountry := match.Feature.(*Country)
+			existingCountry := entry.Features[0]
+			currentCountry := match.Feature
 			// Replace feature for this result key with the current country
 			// iff it's more populous than the existing one.
 			if existingCountry.Population < currentCountry.Population {
-				entry.Features = []feature.Feature{match.Feature}
+				entry.Features = []Country{match.Feature}
 			}
 			return nil
 		})
@@ -168,7 +167,7 @@ func (MostPopulated) Reduce(result *query.Result, match *query.Match) error {
 // This example uses an example spatial feature implementation.
 // See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_groupingResults() {
-	qb := query.Build()
+	qb := query.Build[CountryID, Country]()
 	stream := qb.StreamTo(MostPopulated{})
 	stream.Map(GroupByRegion{})
 	query := qb.Query() // Map(MostPopulatedByRegion{}).Query()
@@ -186,8 +185,8 @@ func ExampleBuild_groupingResults() {
 
 type DecliningPopulation struct{}
 
-func (DecliningPopulation) Map(match *query.Match) (*query.Match, error) {
-	country := match.Feature.(*Country)
+func (DecliningPopulation) Map(match *query.Match[CountryID, Country]) (*query.Match[CountryID, Country], error) {
+	country := match.Feature
 	if country.Change < 0 {
 		match.AddKey("declining")
 	}
@@ -197,7 +196,7 @@ func (DecliningPopulation) Map(match *query.Match) (*query.Match, error) {
 // This example uses an example spatial feature implementation.
 // See https://github.com/bilus/fencer/blob/master/query/query_test.go for more details.
 func ExampleBuild_complexAggregation() {
-	qb := query.Build()
+	qb := query.Build[CountryID, Country]()
 	stream := qb.StreamTo(MostPopulated{})
 	stream.Map(GroupByRegion{})
 	stream.Map(DecliningPopulation{})
@@ -281,10 +280,10 @@ func makeRect(points []primitives.Point) *primitives.Rect {
 	return rect
 }
 
-func printNamesSorted(features []feature.Feature) {
+func printNamesSorted(features []Country) {
 	names := make([]string, 0)
 	for _, f := range features {
-		names = append(names, f.(*Country).Name)
+		names = append(names, f.Name)
 	}
 	sort.Strings(names)
 	for _, name := range names {

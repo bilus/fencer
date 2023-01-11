@@ -5,24 +5,24 @@ import (
 )
 
 // defaultFilter accepts all features.
-type defaultFilter struct{}
+type defaultFilter[K feature.Key, F feature.Feature[K]] struct{}
 
-func (defaultFilter) IsMatch(feature feature.Feature) (bool, error) {
+func (defaultFilter[K, F]) IsMatch(feature F) (bool, error) {
 	return true, nil
 }
 
 // defaultAggregator keeps one result per feature key.
-type defaultAggregator struct{}
+type defaultAggregator[K feature.Key, F feature.Feature[K]] struct{}
 
-func (defaultAggregator) Map(match *Match) (*Match, error) {
+func (defaultAggregator[K, F]) Map(match *Match[K, F]) (*Match[K, F], error) {
 	match.AddKey(match.Feature.Key())
 	return match, nil
 }
 
-func (defaultAggregator) Reduce(result *Result, match *Match) error {
+func (defaultAggregator[K, F]) Reduce(result *Result[K, F], match *Match[K, F]) error {
 	for _, k := range match.ResultKeys {
-		err := result.Update(k, func(entry *ResultEntry) error {
-			entry.Features = []feature.Feature{match.Feature}
+		err := result.Update(k, func(entry *ResultEntry[K, F]) error {
+			entry.Features = []F{match.Feature}
 			return nil
 		})
 		if err != nil {

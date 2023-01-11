@@ -3,7 +3,6 @@ package feature_test
 import (
 	"fmt"
 
-	"github.com/bilus/fencer/feature"
 	"github.com/bilus/fencer/primitives"
 	"github.com/bilus/fencer/testutil"
 )
@@ -18,7 +17,6 @@ func (id RestaurantID) String() string {
 // Restaurant implements Feature interface to represents a restaurant's
 // area and its other properties.
 type Restaurant struct {
-	feature.Feature
 	ID   RestaurantID
 	Name string
 	Area *primitives.Rect
@@ -34,7 +32,7 @@ func (r *Restaurant) Bounds() *primitives.Rect {
 	return r.Area
 }
 
-func (r *Restaurant) Key() feature.Key {
+func (r *Restaurant) Key() RestaurantID {
 	return r.ID
 }
 

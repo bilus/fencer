@@ -6,44 +6,44 @@ import (
 	"github.com/bilus/fencer/feature"
 )
 
-type Condition interface {
-	IsMatch(feature feature.Feature) (bool, error)
+type Condition[K feature.Key, F feature.Feature[K]] interface {
+	IsMatch(feature F) (bool, error)
 }
 
-type Match struct {
+type Match[K feature.Key, F feature.Feature[K]] struct {
 	ResultKeys []ResultKey
-	Feature    feature.Feature
+	Feature    F
 	Meta       interface{}
 }
 
-func (match *Match) AddKey(resultKey ResultKey) {
+func (match *Match[K, F]) AddKey(resultKey ResultKey) {
 	match.ResultKeys = append(match.ResultKeys, resultKey)
 }
 
-func (match *Match) ReplaceKeys(resultKeys ...ResultKey) {
+func (match *Match[K, F]) ReplaceKeys(resultKeys ...ResultKey) {
 	match.ResultKeys = resultKeys
 }
 
 // Query holds configuration of a query pipeline for narrowing down spatial
 // search results.
-type Query struct {
-	Conditions  []Condition  // Logical conjunction (AND).
-	Aggregators []Aggregator // Logical disjunction (OR).
-	results     *Result
+type Query[K feature.Key, F feature.Feature[K]] struct {
+	Conditions  []Condition[K, F]  // Logical conjunction (AND).
+	Aggregators []Aggregator[K, F] // Logical disjunction (OR).
+	results     *Result[K, F]
 }
 
 // Scan sends a feature through the query pipeline, first rejecting it unless
 // all preconditions (conjunction step) match, then applying each of the filters
 // and finally performing a reduce step to update query results.
-func (q *Query) Scan(feature feature.Feature) error {
-	isMatch, err := allMatch(q.Conditions, feature)
+func (q *Query[K, F]) Scan(feature F) error {
+	isMatch, err := allMatch[K, F](q.Conditions, feature)
 	if err != nil {
 		return err
 	}
 	if !isMatch {
 		return nil
 	}
-	match := &Match{
+	match := &Match[K, F]{
 		Feature: feature,
 	}
 	for _, aggregator := range q.Aggregators {
@@ -67,11 +67,11 @@ func (q *Query) Scan(feature feature.Feature) error {
 }
 
 // Distinct returns distinct features matching the query.
-func (q *Query) Distinct() []feature.Feature {
+func (q *Query[K, F]) Distinct() []F {
 	return q.results.distinct()
 }
 
-func allMatch(conditions []Condition, feature feature.Feature) (bool, error) {
+func allMatch[K feature.Key, F feature.Feature[K]](conditions []Condition[K, F], feature F) (bool, error) {
 	for _, condition := range conditions {
 		match, err := condition.IsMatch(feature)
 		if err != nil {

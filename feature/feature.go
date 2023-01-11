@@ -8,12 +8,13 @@ import (
 
 // Key uniquely identifies a feature.
 type Key interface {
+	comparable
 	String() string
 }
 
 // Feature represents a spatial object.
-type Feature interface {
+type Feature[K Key] interface {
 	Bounds() *primitives.Rect
 	Contains(point primitives.Point) (bool, error)
-	Key() Key
+	Key() K
 }
