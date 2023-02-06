@@ -2,17 +2,17 @@ package query
 
 import "github.com/bilus/fencer/feature"
 
-type queryBuilder[K feature.Key, F feature.Feature[K]] struct {
+type QueryBuilder[K feature.Key, F feature.Feature[K]] struct {
 	query Query[K, F]
 }
 
 // Build returns a new query builder.
-func Build[K feature.Key, F feature.Feature[K]]() *queryBuilder[K, F] {
-	return &queryBuilder[K, F]{}
+func Build[K feature.Key, F feature.Feature[K]]() *QueryBuilder[K, F] {
+	return &QueryBuilder[K, F]{}
 }
 
 // Query returns a complete constructed query.
-func (builder *queryBuilder[K, F]) Query() Query[K, F] {
+func (builder *QueryBuilder[K, F]) Query() Query[K, F] {
 	if len(builder.query.Conditions) == 0 {
 		builder.Where(defaultFilter[K, F]{})
 	}
@@ -26,19 +26,19 @@ func (builder *queryBuilder[K, F]) Query() Query[K, F] {
 }
 
 // Where adds a filter to the query. Multiple filters act as a logical AND.
-func (builder *queryBuilder[K, F]) Where(condition Condition[K, F]) *queryBuilder[K, F] {
+func (builder *QueryBuilder[K, F]) Where(condition Condition[K, F]) *QueryBuilder[K, F] {
 	builder.query.Conditions = append(builder.query.Conditions, condition)
 	return builder
 }
 
 // Aggregate adds a new aggregator.
-func (builder *queryBuilder[K, F]) Aggregate(aggregator Aggregator[K, F]) *queryBuilder[K, F] {
+func (builder *QueryBuilder[K, F]) Aggregate(aggregator Aggregator[K, F]) *QueryBuilder[K, F] {
 	builder.query.Aggregators = append(builder.query.Aggregators, aggregator)
 	return builder
 }
 
 // StreamTo creates a new aggregator stream and returns its builder.
-func (builder *queryBuilder[K, F]) StreamTo(reducer Reducer[K, F]) *streamBuilder[K, F] {
+func (builder *QueryBuilder[K, F]) StreamTo(reducer Reducer[K, F]) *streamBuilder[K, F] {
 	stream := &StreamAggregator[K, F]{
 		Reducer: reducer,
 	}
