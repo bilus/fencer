@@ -142,6 +142,23 @@ func ExampleIndex_Delete_intersect() {
 
 // This example uses an example spatial feature implementation.
 // See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
+func ExampleIndex_Delete_intersectMultipleFeaturesPerKey() {
+	wroclaw, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
+	wroclaw2, _ := NewCity("wrocław", "Wrocław", 638384, pip.Polygon{Points: wroclawBoundaries})
+	szczecin, _ := NewCity("szczecin", "Szczecin", 407811, pip.Polygon{Points: szczecinBoundaries})
+	index, _ := index.New[CityID]([]*City{&wroclaw, &szczecin, &wroclaw2})
+	_ = index.Delete(CityID("wrocław"))
+	location := primitives.Point{14.499678611755371, 53.41209631751399}
+	// A 1000kmx1000km bounding rectangle around the location so we match both cities.
+	radius := 500000.0
+	bounds, _ := geo.NewBoundsAround(location, radius)
+	results, _ := index.Intersect(bounds)
+	fmt.Println(len(results), "result")
+	// Output: 1 result
+}
+
+// This example uses an example spatial feature implementation.
+// See https://github.com/bilus/fencer/blob/master/index/index_test.go for more details.
 func ExampleIndex_Update_lookupNoBoundariesChanged() {
 	wroclaw, _ := NewCity("wrocław", "Wrocław", 500000, pip.Polygon{Points: wroclawBoundaries})
 	szczecin, _ := NewCity("szczecin", "Szczecin", 300000, pip.Polygon{Points: szczecinBoundaries})
