@@ -20,18 +20,18 @@ func (err ErrFeatureNotFound[K]) Error() string {
 	return fmt.Sprintf("Feature not found (key = %q)", err.Key.String())
 }
 
-type featureByKey[K feature.Key, F feature.Feature[K]] map[K]F
+type featuresByKey[K feature.Key, F feature.Feature[K]] map[K][]F
 
 // Index allows finding features by bounding box and custom queries.
 // It is NOT thread-safe.
 type Index[K feature.Key, F feature.Feature[K]] struct {
 	rtree rtree.RTreeG[F]
-	featureByKey[K, F]
+	featuresByKey[K, F]
 }
 
 // Creates a new index containing features.
 func New[K feature.Key, F feature.Feature[K]](features []F) (*Index[K, F], error) {
-	index := Index[K, F]{featureByKey: make(featureByKey[K, F])}
+	index := Index[K, F]{featuresByKey: make(featuresByKey[K, F])}
 	for _, f := range features {
 		if err := index.Insert(f); err != nil {
 			return nil, err
@@ -44,20 +44,23 @@ func New[K feature.Key, F feature.Feature[K]](features []F) (*Index[K, F], error
 func (index *Index[K, F]) Insert(f F) error {
 	bounds := f.Bounds()
 	index.rtree.Insert(bounds.Min, bounds.Max, f)
-	index.featureByKey[f.Key()] = f
+	key := f.Key()
+	index.featuresByKey[key] = append(index.featuresByKey[key], f)
 	return nil
 }
 
 // Delete removes a feature by its key.
 func (index *Index[K, F]) Delete(key K) error {
-	feature, ok := index.featureByKey[key]
+	features, ok := index.featuresByKey[key]
 	if !ok {
 		return ErrFeatureNotFound[K]{Key: key}
 	}
-	delete(index.featureByKey, key)
+	delete(index.featuresByKey, key)
 
-	bounds := feature.Bounds()
-	index.rtree.Delete(bounds.Min, bounds.Max, feature)
+	for _, feature := range features {
+		bounds := feature.Bounds()
+		index.rtree.Delete(bounds.Min, bounds.Max, feature)
+	}
 	return nil
 }
 
@@ -107,11 +110,12 @@ func (index *Index[K, F]) Query(bounds *primitives.Rect, query query.Query[K, F]
 	return query.Distinct(), nil
 }
 
-// Lookup returns a feature based on its key. It returns a slice containing one result or an empty slice if there's no match.
+// Lookup returns a feature based on its key. It returns a slice containing one
+// result or an empty slice if there's no match.
 func (index *Index[K, F]) Lookup(key K) ([]F, error) {
-	f, ok := index.featureByKey[key]
+	features, ok := index.featuresByKey[key]
 	if ok {
-		return []F{f}, nil
+		return features, nil
 	} else {
 		return nil, nil
 	}
@@ -119,11 +123,11 @@ func (index *Index[K, F]) Lookup(key K) ([]F, error) {
 
 // Keys returns a set containing all keys.
 func (index *Index[K, F]) Keys() *hashset.Set[K] {
-	keys := hashset.New(uint64(len(index.featureByKey)),
+	keys := hashset.New(uint64(len(index.featuresByKey)),
 		func(l K, r K) bool { return l == r },
 		func(k K) uint64 { return generic.HashString(k.String()) },
 	)
-	for key := range index.featureByKey {
+	for key := range index.featuresByKey {
 		keys.Put(key)
 	}
 	return keys
@@ -131,15 +135,5 @@ func (index *Index[K, F]) Keys() *hashset.Set[K] {
 
 // Size returns the number of features in the index.
 func (index *Index[K, F]) Size() int {
-	return len(index.featureByKey)
-}
-
-// lookupOne returns one feature based on its key or error.
-func (index *Index[K, F]) lookupOne(key K) (F, error) {
-	f, ok := index.featureByKey[key]
-	if ok {
-		return f, nil
-	} else {
-		return f, ErrFeatureNotFound[K]{Key: key}
-	}
+	return len(index.featuresByKey)
 }
